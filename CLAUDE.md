@@ -5,6 +5,12 @@ C++17, CMake 기반. 빌드 환경은 `BUILD.md` 참조.
 
 ---
 
+## 요구사항
+
+기능·비기능 요구사항 전체는 [`docs/PRD.md`](docs/PRD.md) 참조.
+
+---
+
 ## 모듈 구성
 
 ### `lib/json/` → CMake 타겟: `json_lib`
