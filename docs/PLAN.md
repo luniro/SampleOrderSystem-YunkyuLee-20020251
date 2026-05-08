@@ -54,7 +54,7 @@ DATA_SCHEMA.md 변경(`approved_at`, `released_at`, `production_start_at` 신규
 본격 기능 구현 전 공통으로 필요한 유틸리티와 UI 기반을 마련한다.
 
 - **테이블 행 paging**: `table_printer`에 행이 많을 경우 위아래로 이동하는 페이지 기능 추가. 페이지당 표시 행 수는 콘솔 높이를 동적으로 읽어 헤더·푸터·프롬프트 영역을 제외한 나머지로 결정. 콘솔 크기 조회는 별도 유틸리티로 래핑
-- **입력 유효성 검사 유틸리티**: 정수 범위, 문자열 공백 등 공통 입력 검증 및 오류 시 재입력 루프 (FR-U-02)
+- **입력 유효성 검사 유틸리티**: 정수 범위, 문자열 공백 등 공통 입력 검증 및 오류 시 재입력 루프 (FR-U-02). `read_nonempty`는 빈 줄 입력 시 `""` 를 반환하여 호출부에서 흐름 취소 신호로 처리한다 (FR-U-04).
 - **타임스탬프 유틸리티**: 타임스탬프·duration 문자열 파싱·비교·포맷 함수 (`HH:MM (+N day(s))` 포맷 포함, FR-L-02, FR-L-08)
 - **생산 계산 유틸리티**: 실 생산량 및 생산 소요 시간 산출 함수 (PRD 4.3 기준)
 
@@ -70,7 +70,8 @@ DATA_SCHEMA.md 변경(`approved_at`, `released_at`, `production_start_at` 신규
 | FR-S-04 | 시료 조회: 전체 시료 paged 테이블 출력 |
 | FR-S-05~07, FR-S-06b | 시료 검색: 시료명 부분 검색(복수→테이블, 1건→상세) / 속성값 정확 검색(→단일 상세) / 0건 안내 |
 
-**산출물**: 시료 관리(등록·조회·검색)가 동작하는 바이너리
+**산출물**: 시료 관리(등록·조회·검색)가 동작하는 바이너리  
+**공통 적용**: 시료 등록 흐름의 모든 텍스트 입력에서 빈 줄 입력 시 취소 지원 (FR-U-04)
 
 ---
 
@@ -81,6 +82,7 @@ DATA_SCHEMA.md 변경(`approved_at`, `released_at`, `production_start_at` 신규
 | FR-O-01~02 | 시료 ID 입력 및 등록 여부 검증 |
 | FR-O-03~04 | 입력 요약 확인 화면, 취소 시 메뉴 복귀 |
 | FR-O-05~06 | 주문번호 발행(`ORD-YYYYMMDD-NNN`), Reserved 저장, 결과 출력 |
+| FR-U-04 | 주문 접수 흐름의 모든 텍스트 입력에서 빈 줄 입력 시 취소 지원 |
 
 **산출물**: 시료 관리 + 주문 접수가 동작하는 바이너리
 
@@ -98,7 +100,8 @@ DATA_SCHEMA.md 변경(`approved_at`, `released_at`, `production_start_at` 신규
 | FR-A-07 | 승인 처리: Confirmed 또는 Producing 전환. Producing 전환 시 생산 레코드 생성, `approved_at` 기록, `production_start_at` 확정(enqueue 규칙 적용) |
 | FR-A-08~09 | 거절 처리: Rejected 전환. 처리 결과 출력 |
 
-**산출물**: 주문 승인·거절 및 Producing/Confirmed 전환이 동작하는 바이너리
+**산출물**: 주문 승인·거절 및 Producing/Confirmed 전환이 동작하는 바이너리  
+**공통 적용**: 주문 처리 흐름의 모든 텍스트 입력에서 빈 줄 입력 시 취소 지원 (FR-U-04)
 
 ---
 
@@ -124,7 +127,8 @@ DATA_SCHEMA.md 변경(`approved_at`, `released_at`, `production_start_at` 신규
 | FR-R-05 | 출고 처리: Released 전환, `current_stock -= order_quantity`, `released_at` 기록 |
 | FR-R-06 | 처리 결과 출력: 주문번호, 출고수량, 처리일시, 상태 변화 |
 
-**산출물**: 출고 처리가 동작하는 바이너리
+**산출물**: 출고 처리가 동작하는 바이너리  
+**공통 적용**: 출고 처리 흐름의 모든 텍스트 입력에서 빈 줄 입력 시 취소 지원 (FR-U-04)
 
 ---
 

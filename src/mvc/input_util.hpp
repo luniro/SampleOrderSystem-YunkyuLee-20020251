@@ -11,8 +11,8 @@ namespace InputUtil {
                  const std::string& error_msg = "잘못된 입력입니다. 다시 입력해 주세요.");
 
     // Print prompt then read a non-empty string.
-    // Lines that are entirely whitespace (including blank lines) trigger error_msg and retry.
-    // On EOF, return "" immediately.
+    // Empty or whitespace-only input (including blank Enter) returns "" immediately — cancel signal (FR-U-04).
+    // On EOF, also return "".
     // The returned string is the raw input (no trimming).
     std::string read_nonempty(const std::string& prompt,
                               const std::string& error_msg = "빈 값은 입력할 수 없습니다. 다시 입력해 주세요.");

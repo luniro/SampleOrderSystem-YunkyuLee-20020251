@@ -52,12 +52,11 @@ std::string read_nonempty(const std::string& prompt,
             // EOF
             return "";
         }
-        // Check if entirely whitespace
+        // Empty or whitespace-only → cancel signal (FR-U-04)
         bool all_space = std::all_of(line.begin(), line.end(),
                                      [](unsigned char c) { return std::isspace(c); });
         if (all_space) {
-            std::cout << error_msg << '\n';
-            continue;
+            return "";
         }
         return line;
     }

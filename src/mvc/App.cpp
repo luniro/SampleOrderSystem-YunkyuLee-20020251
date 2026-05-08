@@ -1,6 +1,8 @@
 #include "mvc/App.hpp"
 #include "mvc/input_util.hpp"
 #include "monitor/ui/table_printer.hpp"
+#include <climits>
+#include <ctime>
 #include <filesystem>
 #include <iomanip>
 #include <iostream>
@@ -15,6 +17,7 @@ namespace mvc {
 App::App(AppConfig config)
     : config_(std::move(config))
     , sample_store_((fs::path(config_.data_dir) / "samples.json").string())
+    , order_store_((fs::path(config_.data_dir) / "orders.json").string())
     , sample_repo_((fs::path(config_.data_dir) / "samples.json").string())
     , order_repo_((fs::path(config_.data_dir) / "orders.json").string())
     , production_repo_((fs::path(config_.data_dir) / "productions.json").string())
@@ -80,8 +83,8 @@ void App::sample_register() {
     // 1. 시료 ID
     std::string sample_id;
     while (true) {
-        sample_id = InputUtil::read_nonempty("시료 ID: ");
-        if (sample_id.empty()) break; // EOF
+        sample_id = InputUtil::read_nonempty("시료 ID (빈 줄: 취소): ");
+        if (sample_id.empty()) break;
         bool dup = false;
         for (const auto& s : existing) {
             if (s.sample_id == sample_id) { dup = true; break; }
@@ -227,7 +230,7 @@ void App::sample_search() {
 
             case 1: {
                 // 시료명 부분 검색
-                std::string keyword = InputUtil::read_nonempty("검색어: ");
+                std::string keyword = InputUtil::read_nonempty("검색어 (빈 줄: 취소): ");
                 if (keyword.empty()) { loop = false; break; } // EOF
                 sample_repo_.refresh();
                 auto all = sample_repo_.find_all();
@@ -248,8 +251,8 @@ void App::sample_search() {
 
             case 2: {
                 // 시료 ID 정확 검색
-                std::string sid = InputUtil::read_nonempty("시료 ID: ");
-                if (sid.empty()) { loop = false; break; } // EOF
+                std::string sid = InputUtil::read_nonempty("시료 ID (빈 줄: 취소): ");
+                if (sid.empty()) { loop = false; break; }
                 sample_repo_.refresh();
                 auto result = sample_repo_.find_by_sample_id(sid);
                 if (!result.has_value()) {
@@ -264,8 +267,8 @@ void App::sample_search() {
                 // 수율 정확 검색
                 double target_yield = 0.0;
                 while (true) {
-                    std::string raw = InputUtil::read_nonempty("수율: ");
-                    if (raw.empty()) { loop = false; break; } // EOF
+                    std::string raw = InputUtil::read_nonempty("수율 (빈 줄: 취소): ");
+                    if (raw.empty()) { loop = false; break; }
                     try {
                         std::size_t pos = 0;
                         target_yield = std::stod(raw, &pos);
@@ -294,8 +297,8 @@ void App::sample_search() {
                 // 평균 생산시간 정확 검색
                 double target_pt = 0.0;
                 while (true) {
-                    std::string raw = InputUtil::read_nonempty("평균 생산시간(min/ea): ");
-                    if (raw.empty()) { loop = false; break; } // EOF
+                    std::string raw = InputUtil::read_nonempty("평균 생산시간(min/ea) (빈 줄: 취소): ");
+                    if (raw.empty()) { loop = false; break; }
                     try {
                         std::size_t pos = 0;
                         target_pt = std::stod(raw, &pos);
@@ -350,10 +353,101 @@ void App::print_sample_table(const std::vector<Sample>& samples) {
     tp.print_paged();
 }
 
-// ── 메인 메뉴 2~6 (stub) ─────────────────────────────────────────────────────
+// ── 메인 메뉴 2: 주문 접수 ──────────────────────────────────────────────────────
 
 void App::menu_order_reception() {
-    std::cout << "준비 중\n";
+    order_reception();
+}
+
+// ── 주문 접수 로직 ────────────────────────────────────────────────────────────
+
+void App::order_reception() {
+    // 1. 시료 ID 입력 및 검증 (FR-O-02)
+    std::string sample_id;
+    std::string sample_name;
+    while (true) {
+        sample_id = InputUtil::read_nonempty("시료 ID (빈 줄: 취소): ");
+        if (sample_id.empty()) return;
+        sample_repo_.refresh();
+        auto found = sample_repo_.find_by_sample_id(sample_id);
+        if (!found.has_value()) {
+            std::cout << "존재하지 않는 시료 ID입니다. 다시 입력해 주세요.\n";
+            continue;
+        }
+        sample_name = found.value().sample_name;
+        break;
+    }
+
+    // 2. 고객명 입력
+    std::string customer_name = InputUtil::read_nonempty("고객명: ");
+    if (customer_name.empty()) return; // EOF
+
+    // 3. 주문수량 입력 (1 이상)
+    int quantity = InputUtil::read_int("주문수량: ", 1, INT_MAX);
+
+    // 4. 확인 화면 출력 (FR-O-03)
+    std::cout << "\n[ 주문 확인 ]\n"
+              << "  시료: " << sample_name << " (" << sample_id << ")\n"
+              << "  고객: " << customer_name << "\n"
+              << "  수량: " << quantity << " ea\n\n"
+              << " 1. 접수\n"
+              << " 0. 취소\n";
+    int confirm = InputUtil::read_int("> ", 0, 1);
+
+    // 5. 취소(0): return (FR-O-04)
+    if (confirm == 0) {
+        return;
+    }
+
+    // 6. 접수(1): 주문번호 발행 + 저장 + 결과 출력 (FR-O-05, FR-O-06)
+
+    // 오늘 날짜 문자열 "YYYYMMDD" 산출
+    std::time_t t = std::time(nullptr);
+    std::tm tm{};
+#ifdef _WIN32
+    localtime_s(&tm, &t);
+#else
+    localtime_r(&t, &tm);
+#endif
+    char datebuf[9];
+    std::strftime(datebuf, sizeof(datebuf), "%Y%m%d", &tm);
+    std::string date_str = datebuf;
+
+    // 오늘 날짜 기존 주문 수 카운팅
+    std::string prefix = "ORD-" + date_str + "-";
+    int count = 0;
+    order_repo_.refresh();
+    for (const auto& o : order_repo_.find_all()) {
+        if (o.order_number.rfind(prefix, 0) == 0) ++count;
+    }
+
+    // 주문번호 생성
+    int seq = count + 1;
+    std::ostringstream oss;
+    oss << prefix;
+    if (seq < 1000) {
+        oss << std::setfill('0') << std::setw(3) << seq;
+    } else {
+        oss << seq;
+    }
+    std::string order_number = oss.str();
+
+    // 저장
+    JsonValue rec = JsonValue::object();
+    rec["order_number"]   = JsonValue(order_number);
+    rec["sample_id"]      = JsonValue(sample_id);
+    rec["customer_name"]  = JsonValue(customer_name);
+    rec["order_quantity"] = JsonValue(static_cast<int64_t>(quantity));
+    rec["order_status"]   = JsonValue(int64_t(Order::STATUS_RESERVED));
+    rec["approved_at"]    = JsonValue(nullptr);
+    rec["released_at"]    = JsonValue(nullptr);
+    order_store_.create(rec);
+    order_repo_.refresh();
+
+    // 결과 출력 (FR-O-06)
+    std::cout << "주문이 접수되었습니다.\n"
+              << "  주문번호: " << order_number << "\n"
+              << "  상태    : Reserved\n";
 }
 
 void App::menu_order_processing() {

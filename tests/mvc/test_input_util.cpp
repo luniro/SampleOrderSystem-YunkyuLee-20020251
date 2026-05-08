@@ -104,20 +104,18 @@ TEST(TG_IU, ReadNonempty_Valid) {
     EXPECT_EQ(val, "hello");
 }
 
-// TC-IU-11: read_nonempty() — blank line then valid
-TEST(TG_IU, ReadNonempty_BlankThenValid) {
-    StreamRedirect r("\nhello\n");
+// TC-IU-11: read_nonempty() — blank line returns "" immediately (cancel, FR-U-04)
+TEST(TG_IU, ReadNonempty_BlankReturnsEmpty) {
+    StreamRedirect r("\n");
     std::string val = InputUtil::read_nonempty("Enter: ");
-    EXPECT_EQ(val, "hello");
-    EXPECT_NE(r.output().find("빈 값"), std::string::npos);
+    EXPECT_EQ(val, "");
 }
 
-// TC-IU-12: read_nonempty() — spaces-only then valid
-TEST(TG_IU, ReadNonempty_SpacesOnlyThenValid) {
-    StreamRedirect r("   \nworld\n");
+// TC-IU-12: read_nonempty() — spaces-only returns "" immediately (cancel, FR-U-04)
+TEST(TG_IU, ReadNonempty_SpacesOnlyReturnsEmpty) {
+    StreamRedirect r("   \n");
     std::string val = InputUtil::read_nonempty("Enter: ");
-    EXPECT_EQ(val, "world");
-    EXPECT_NE(r.output().find("빈 값"), std::string::npos);
+    EXPECT_EQ(val, "");
 }
 
 // TC-IU-13: read_nonempty() — EOF returns empty string
@@ -134,9 +132,11 @@ TEST(TG_IU, ReadNonempty_NoTrimming) {
     EXPECT_EQ(val, "  hello  ");
 }
 
-// TC-IU-15: read_nonempty() — custom error message
-TEST(TG_IU, ReadNonempty_CustomErrorMsg) {
-    StreamRedirect r("\nvalue\n");
-    InputUtil::read_nonempty("Enter: ", "custom empty error");
-    EXPECT_NE(r.output().find("custom empty error"), std::string::npos);
+// TC-IU-15: read_nonempty() — blank line cancels (no error message shown, FR-U-04)
+TEST(TG_IU, ReadNonempty_BlankCancelsNoError) {
+    StreamRedirect r("\n");
+    std::string val = InputUtil::read_nonempty("Enter: ", "custom empty error");
+    EXPECT_EQ(val, "");
+    // No error message should appear — blank = cancel, not an error
+    EXPECT_EQ(r.output().find("custom empty error"), std::string::npos);
 }

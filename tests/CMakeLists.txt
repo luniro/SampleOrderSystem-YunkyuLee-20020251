@@ -196,3 +196,29 @@ else()
 endif()
 
 gtest_discover_tests(test_sample_management)
+
+# ── Phase 3: Order Reception tests ───────────────────────────────────────────
+add_executable(test_order_reception
+    mvc/test_order_reception.cpp
+)
+
+target_include_directories(test_order_reception PRIVATE
+    ${CMAKE_SOURCE_DIR}/lib
+    ${CMAKE_SOURCE_DIR}/lib/persistence
+    ${CMAKE_SOURCE_DIR}/src
+)
+
+target_link_libraries(test_order_reception PRIVATE
+    mvc
+    monitor_lib
+    persistence
+    GTest::gtest_main
+)
+
+if(MSVC)
+    target_compile_options(test_order_reception PRIVATE /W4 /utf-8)
+else()
+    target_compile_options(test_order_reception PRIVATE -Wall -Wextra)
+endif()
+
+gtest_discover_tests(test_order_reception)

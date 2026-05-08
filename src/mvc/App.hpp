@@ -22,6 +22,7 @@ private:
 
     // 쓰기용 DataStore (persistence layer)
     DataStore sample_store_;
+    DataStore order_store_;   // 주문 쓰기용
 
     // 읽기용 Repository (monitor layer)
     SampleRepository     sample_repo_;
@@ -40,6 +41,9 @@ private:
     void sample_register();
     void sample_list();
     void sample_search();
+
+    // 주문 접수 서브 메서드
+    void order_reception();
 
     // 출력 헬퍼 (static)
     static void print_sample_detail(const Sample& s);
