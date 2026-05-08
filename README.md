@@ -26,6 +26,18 @@ C++17, CMake 기반. Windows 전용.
 
 ---
 
+## 실행 환경
+
+**한글 입출력이 올바르게 동작하려면 반드시 PowerShell에서 실행해야 한다.**  
+Command Prompt(cmd.exe)는 한글 렌더링을 지원하지 않으므로 사용하지 않는다.
+
+```powershell
+# PowerShell에서 실행
+.\build\Release\SampleOrderSystem.exe
+```
+
+---
+
 ## 빠른 빌드
 
 상세 빌드 명령 및 커버리지 측정은 [`BUILD.md`](BUILD.md) 참조.

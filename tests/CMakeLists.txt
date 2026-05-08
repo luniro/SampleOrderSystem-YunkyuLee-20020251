@@ -152,6 +152,11 @@ add_executable(test_input_util
     mvc/test_input_util.cpp
 )
 
+# ── Phase 2: Sample Management tests ─────────────────────────────────────────
+add_executable(test_sample_management
+    mvc/test_sample_management.cpp
+)
+
 target_include_directories(test_input_util PRIVATE
     ${CMAKE_SOURCE_DIR}/lib
     ${CMAKE_SOURCE_DIR}/lib/persistence
@@ -170,3 +175,24 @@ else()
 endif()
 
 gtest_discover_tests(test_input_util)
+
+target_include_directories(test_sample_management PRIVATE
+    ${CMAKE_SOURCE_DIR}/lib
+    ${CMAKE_SOURCE_DIR}/lib/persistence
+    ${CMAKE_SOURCE_DIR}/src
+)
+
+target_link_libraries(test_sample_management PRIVATE
+    mvc
+    monitor_lib
+    persistence
+    GTest::gtest_main
+)
+
+if(MSVC)
+    target_compile_options(test_sample_management PRIVATE /W4 /utf-8)
+else()
+    target_compile_options(test_sample_management PRIVATE -Wall -Wextra)
+endif()
+
+gtest_discover_tests(test_sample_management)

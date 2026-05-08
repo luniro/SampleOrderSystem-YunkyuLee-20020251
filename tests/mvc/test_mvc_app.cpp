@@ -58,12 +58,13 @@ TEST(TG_MVC, TC_MVC_01_MainMenuItems) {
     remove_dir(dir);
 }
 
-// ── TC-MVC-02: 메뉴 1 진입 시 "준비 중" 출력 ────────────────────────────────
-TEST(TG_MVC, TC_MVC_02_Menu1StubOutput) {
+// ── TC-MVC-02: 메뉴 1 진입 시 시료 관리 서브 메뉴 출력 (Phase 2 이후) ───────
+TEST(TG_MVC, TC_MVC_02_Menu1SampleMgmtSubMenu) {
     auto dir = make_temp_dir("02");
-    std::string output = run_app_with_input("1\n0\n", dir);
+    // Enter menu 1, then press 0 to go back, then 0 to exit
+    std::string output = run_app_with_input("1\n0\n0\n", dir);
 
-    EXPECT_NE(output.find("준비 중"), std::string::npos) << output;
+    EXPECT_NE(output.find("시료 관리"), std::string::npos) << output;
 
     remove_dir(dir);
 }
@@ -141,18 +142,21 @@ TEST(TG_MVC, TC_MVC_09_InvalidInputError) {
 }
 
 // ── TC-MVC-10: 여러 메뉴를 순서대로 진입 후 종료 ────────────────────────────
+// Phase 2: 메뉴 1 은 실제 서브 메뉴가 구현되어 "준비 중" 없음.
+// 메뉴 2, 3 은 stub("준비 중"). 두 번 이상 "준비 중" 출력을 확인한다.
 TEST(TG_MVC, TC_MVC_10_MultipleMenusStubOutput) {
     auto dir = make_temp_dir("10");
-    std::string output = run_app_with_input("1\n2\n3\n0\n", dir);
+    // Enter menu 1 (submenu: press 0 to go back), then 2, then 3, then 0 to exit
+    std::string output = run_app_with_input("1\n0\n2\n3\n0\n", dir);
 
-    // "준비 중" should appear at least 3 times
+    // "준비 중" should appear at least 2 times (menus 2 and 3)
     size_t count = 0;
     size_t pos = 0;
     while ((pos = output.find("준비 중", pos)) != std::string::npos) {
         ++count;
         pos += 1;
     }
-    EXPECT_GE(count, size_t(3)) << "Expected at least 3 occurrences of '준비 중', got " << count << ". Output:\n" << output;
+    EXPECT_GE(count, size_t(2)) << "Expected at least 2 occurrences of '준비 중', got " << count << ". Output:\n" << output;
 
     remove_dir(dir);
 }

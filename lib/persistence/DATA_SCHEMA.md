@@ -13,7 +13,7 @@
 |------|--------|-----------|------|
 | 시료 ID | `sample_id` | `String` | 시료 고유 식별자 (사용자 지정) |
 | 시료명 | `sample_name` | `String` | 시료 이름 |
-| 평균 생산시간 | `avg_production_time` | `Float` | 단위: 시간(h) |
+| 평균 생산시간 | `avg_production_time` | `Float` | 단위: min/ea (개당 생산 소요 시간, 분) |
 | 수율 | `yield_rate` | `Float` | 범위: 0.0 ~ 1.0 (예: 0.85 = 85%) |
 | 현재 재고 | `current_stock` | `Integer` | 단위: 개 |
 

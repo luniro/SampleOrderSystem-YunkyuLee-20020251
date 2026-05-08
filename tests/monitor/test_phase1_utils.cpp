@@ -172,8 +172,8 @@ TEST(TG_PC, ActualProduction_OneShortage) {
 
 // TC-PC-05: estimated_minutes() — typical
 TEST(TG_PC, EstimatedMinutes_Typical) {
-    // 23 * 4.5 * 60 = 6210
-    EXPECT_NEAR(ProductionCalc::estimated_minutes(23, 4.5), 6210.0, 0.001);
+    // 23 * 4.5 = 103.5  (avg_production_time 단위: min/ea)
+    EXPECT_NEAR(ProductionCalc::estimated_minutes(23, 4.5), 103.5, 0.001);
 }
 
 // TC-PC-06: estimated_minutes() — zero production

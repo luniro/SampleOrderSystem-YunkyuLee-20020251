@@ -14,7 +14,7 @@ int64_t actual_production(int64_t shortage, double yield_rate) {
 }
 
 double estimated_minutes(int64_t actual_production_qty, double avg_production_time) {
-    return static_cast<double>(actual_production_qty) * avg_production_time * 60.0;
+    return static_cast<double>(actual_production_qty) * avg_production_time;
 }
 
 std::string format_duration(double total_minutes) {

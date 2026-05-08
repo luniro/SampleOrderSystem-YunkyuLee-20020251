@@ -233,8 +233,8 @@ namespace ProductionCalc {
     // shortage = 0 이면 0 반환
     int64_t actual_production(int64_t shortage, double yield_rate);
 
-    // 총 생산 소요 시간(분): actual_production * avg_production_time(시간) * 60
-    // avg_production_time 단위: 시간(h)
+    // 총 생산 소요 시간(분): actual_production * avg_production_time(min/ea)
+    // avg_production_time 단위: min/ea
     double estimated_minutes(int64_t actual_production, double avg_production_time);
 
     // 총 분 → "HH:MM" 문자열
@@ -246,7 +246,7 @@ namespace ProductionCalc {
 ### 구현 규칙
 
 - `actual_production`: `std::ceil(static_cast<double>(shortage) / (yield_rate * 0.9))` 후 `int64_t` 캐스팅.
-- `estimated_minutes`: `static_cast<double>(actual_production) * avg_production_time * 60.0`.
+- `estimated_minutes`: `static_cast<double>(actual_production) * avg_production_time`.
 - `format_duration`: `std::round(total_minutes)` 후 `HH = total_mins / 60`, `MM = total_mins % 60`. 항상 2자리(`std::setfill('0')`, `std::setw(2)`).
 
 ---

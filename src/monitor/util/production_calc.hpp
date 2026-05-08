@@ -8,7 +8,7 @@ namespace ProductionCalc {
     int64_t actual_production(int64_t shortage, double yield_rate);
 
     // Total production time in minutes:
-    //   actual_production * avg_production_time (hours) * 60
+    //   actual_production * avg_production_time (min/ea)
     double estimated_minutes(int64_t actual_production_qty, double avg_production_time);
 
     // Convert total minutes to "HH:MM" string (rounded, always 2 digits each).

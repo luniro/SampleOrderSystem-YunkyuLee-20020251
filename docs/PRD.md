@@ -97,7 +97,7 @@
 
 - `current_stock`은 아직 출하되지 않은 **실물 재고**를 나타낸다.
 - 재고 변동은 두 시점에만 발생한다.
-  - **증가**: `Producing → Confirmed` 전환(생산 완료) 시 `shortage`만큼 증가한다.
+  - **증가**: `Producing → Confirmed` 전환(생산 완료) 시 `actual_production`만큼 증가한다.
   - **차감**: `Released` 전환 시 `order_quantity`만큼 감소한다.
 - `Confirmed` 주문은 출하 대기 중이므로 `current_stock`에서 아직 차감되지 않았지만 해당 수량을 **전량 선점**하고 있다.
 - `Producing` 주문은 부족분(`shortage`)을 생산으로 충당하고, 나머지(`order_quantity − shortage`)는 기존 재고에서 이미 **부분 선점**하고 있다.
@@ -198,7 +198,7 @@ shortage = order_quantity   (전량 생산)
 | ID | 요구사항 | 역할 | 우선순위 |
 |----|----------|------|----------|
 | FR-S-01 | 시료의 각 속성값을 입력하여 새 시료를 시스템에 등록할 수 있다. | 주문 담당자 | Must |
-| FR-S-02 | 이미 존재하는 시료 ID로 등록을 시도하면 오류 메시지를 출력하고 거부한다. | 시스템 | Must |
+| FR-S-02 | 시료 ID, 시료명, 수율, 평균 생산시간 중 하나라도 이미 존재하는 값으로 등록을 시도하면 오류 메시지를 출력하고 거부한다. | 시스템 | Must |
 | FR-S-03 | 등록 완료 후 부여된 시료 ID를 화면에 출력한다. | 시스템 | Must |
 
 #### 1-2. 시료 조회
@@ -431,8 +431,8 @@ Confirmed 주문 목록 표시
 | FR-L-06 | 생산 중인 주문이 없으면 생산 현황 영역에 `생산 중인 주문 없음`을 표시한다. | 시스템 | Must |
 | FR-L-07 | 대기 주문이 없으면 대기 주문 영역에 `대기 중인 주문 없음`을 표시한다. | 시스템 | Must |
 | FR-L-08 | 대기 주문의 예상 완료시간이 화면 조회 시각의 날짜를 넘기는 경우 `HH:MM (+N day(s))` 형식으로 표시한다. (예: `02:30 (+1 day)`, `14:00 (+2 days)`) | 시스템 | Should |
-| FR-L-09 | 생산 중인 주문의 완료 예정 시각(`production_start_at` + `estimated_completion`)이 경과하면 백그라운드에서 자동으로 해당 주문을 `Confirmed`로 전환하고 해당 시료의 `current_stock`을 `shortage`만큼 증가시킨다. `production_start_at`은 enqueue 시점에 이미 확정되어 있으므로 전환 시 별도 갱신이 불필요하다. | 시스템 | Must |
-| FR-L-10 | 프로그램 재시작 시 저장된 데이터를 기반으로 현재 시각 기준의 생산 큐 상태를 즉시 재평가(lazy evaluation)한다. `production_start_at` 순으로 Producing 주문을 순차 평가하여, 완료 예정 시각이 경과한 주문은 `Confirmed`로 전환하고 `current_stock`을 `shortage`만큼 증가시킨다. 모든 시간 정보는 enqueue 시점에 확정되어 있으므로 재시작 시 재계산이 불필요하다. | 시스템 | Must |
+| FR-L-09 | 생산 중인 주문의 완료 예정 시각(`production_start_at` + `estimated_completion`)이 경과하면 백그라운드에서 자동으로 해당 주문을 `Confirmed`로 전환하고 해당 시료의 `current_stock`을 `actual_production`만큼 증가시킨다. `production_start_at`은 enqueue 시점에 이미 확정되어 있으므로 전환 시 별도 갱신이 불필요하다. | 시스템 | Must |
+| FR-L-10 | 프로그램 재시작 시 저장된 데이터를 기반으로 현재 시각 기준의 생산 큐 상태를 즉시 재평가(lazy evaluation)한다. `production_start_at` 순으로 Producing 주문을 순차 평가하여, 완료 예정 시각이 경과한 주문은 `Confirmed`로 전환하고 `current_stock`을 `actual_production`만큼 증가시킨다. 모든 시간 정보는 enqueue 시점에 확정되어 있으므로 재시작 시 재계산이 불필요하다. | 시스템 | Must |
 
 > **데이터 스키마 변경 필요**: 생산 라인 기능 구현을 위해 `Order` 레코드에 승인 시각(큐 진입 기준 정렬용) 및 진행률 계산에 필요한 생산 시작 시각 등 추가 필드가 필요하다. [`lib/persistence/DATA_SCHEMA.md`](../lib/persistence/DATA_SCHEMA.md) 변경이 수반된다.
 

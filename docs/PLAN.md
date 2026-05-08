@@ -66,7 +66,7 @@ DATA_SCHEMA.md 변경(`approved_at`, `released_at`, `production_start_at` 신규
 
 | 참조 FR | 목표 |
 |---------|------|
-| FR-S-01~03 | 시료 등록: 속성 입력 → 중복 ID 검사 → 저장 → 부여된 ID 출력 |
+| FR-S-01~03 | 시료 등록: 속성 입력 → 중복 속성 검사(시료 ID·시료명·수율·평균 생산시간) → 저장 → 부여된 ID 출력 |
 | FR-S-04 | 시료 조회: 전체 시료 paged 테이블 출력 |
 | FR-S-05~07, FR-S-06b | 시료 검색: 시료명 부분 검색(복수→테이블, 1건→상세) / 속성값 정확 검색(→단일 상세) / 0건 안내 |
 
@@ -149,8 +149,8 @@ DATA_SCHEMA.md 변경(`approved_at`, `released_at`, `production_start_at` 신규
 
 | 참조 FR | 목표 |
 |---------|------|
-| FR-L-09 | 백그라운드 자동 전환: 완료 예정 시각(`production_start_at + estimated_completion`) 경과 시 Producing → Confirmed 전환, `current_stock += shortage` |
-| FR-L-10 | 재시작 lazy evaluation: 기동 시 `production_start_at` 순으로 Producing 주문을 순차 평가 → 경과 주문 일괄 Confirmed 전환 및 `current_stock` 복원 |
+| FR-L-09 | 백그라운드 자동 전환: 완료 예정 시각(`production_start_at + estimated_completion`) 경과 시 Producing → Confirmed 전환, `current_stock += actual_production` |
+| FR-L-10 | 재시작 lazy evaluation: 기동 시 `production_start_at` 순으로 Producing 주문을 순차 평가 → 경과 주문 일괄 Confirmed 전환 및 `current_stock += actual_production` |
 
 **산출물**: 전체 기능이 완성된 바이너리
 

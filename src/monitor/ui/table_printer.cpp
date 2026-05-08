@@ -4,6 +4,45 @@
 #include <iostream>
 #include <string>
 
+// Returns the terminal display width of a UTF-8 string.
+// ASCII = 1 column; Korean/CJK wide characters = 2 columns.
+static size_t display_width(const std::string& s) {
+    size_t width = 0;
+    size_t i = 0;
+    while (i < s.size()) {
+        unsigned char c = static_cast<unsigned char>(s[i]);
+        uint32_t cp = 0;
+        int bytes = 0;
+        if (c < 0x80)                        { cp = c;         bytes = 1; }
+        else if ((c & 0xE0) == 0xC0)         { cp = c & 0x1F;  bytes = 2; }
+        else if ((c & 0xF0) == 0xE0)         { cp = c & 0x0F;  bytes = 3; }
+        else if ((c & 0xF8) == 0xF0)         { cp = c & 0x07;  bytes = 4; }
+        else                                 { ++i; continue; }
+        for (int j = 1; j < bytes && i + static_cast<size_t>(j) < s.size(); ++j)
+            cp = (cp << 6) | (static_cast<unsigned char>(s[i + j]) & 0x3F);
+        i += static_cast<size_t>(bytes);
+
+        // East Asian Wide / Fullwidth ranges
+        bool wide =
+            (cp >= 0x1100  && cp <= 0x115F)  ||   // Hangul Jamo
+            (cp >= 0x2E80  && cp <= 0x303E)  ||   // CJK Radicals / Kangxi
+            (cp >= 0x3040  && cp <= 0x33FF)  ||   // Kana, Bopomofo, Hangul Compat
+            (cp >= 0x3400  && cp <= 0x4DBF)  ||   // CJK Extension A
+            (cp >= 0x4E00  && cp <= 0x9FFF)  ||   // CJK Unified Ideographs
+            (cp >= 0xA000  && cp <= 0xA4CF)  ||   // Yi
+            (cp >= 0xAC00  && cp <= 0xD7AF)  ||   // Hangul Syllables
+            (cp >= 0xF900  && cp <= 0xFAFF)  ||   // CJK Compatibility Ideographs
+            (cp >= 0xFE10  && cp <= 0xFE1F)  ||   // Vertical forms
+            (cp >= 0xFE30  && cp <= 0xFE4F)  ||   // CJK Compatibility Forms
+            (cp >= 0xFF00  && cp <= 0xFF60)  ||   // Fullwidth / Halfwidth
+            (cp >= 0xFFE0  && cp <= 0xFFE6)  ||
+            (cp >= 0x20000 && cp <= 0x2FFFD) ||   // CJK Extension B+
+            (cp >= 0x30000 && cp <= 0x3FFFD);
+        width += wide ? 2u : 1u;
+    }
+    return width;
+}
+
 TablePrinter::TablePrinter(std::vector<std::string> headers)
     : headers_(std::move(headers)) {}
 
@@ -18,17 +57,17 @@ void TablePrinter::print() const {
     std::vector<size_t> widths(cols, 0);
 
     for (size_t c = 0; c < cols; ++c)
-        widths[c] = headers_[c].size();
+        widths[c] = display_width(headers_[c]);
     for (const auto& row : rows_)
         for (size_t c = 0; c < cols && c < row.size(); ++c)
-            widths[c] = std::max(widths[c], row[c].size());
+            widths[c] = std::max(widths[c], display_width(row[c]));
 
     auto print_row = [&](const std::vector<std::string>& cells) {
         for (size_t c = 0; c < cols; ++c) {
             const std::string& val = (c < cells.size()) ? cells[c] : "";
             std::cout << "  " << val;
             if (c + 1 < cols)
-                std::cout << std::string(widths[c] - val.size(), ' ');
+                std::cout << std::string(widths[c] - display_width(val), ' ');
         }
         std::cout << '\n';
     };
@@ -49,21 +88,21 @@ void TablePrinter::print() const {
 void TablePrinter::print_paged() const {
     if (headers_.empty()) return;
 
-    // Compute column widths (same logic as print())
+    // Compute column widths using terminal display width
     size_t cols = headers_.size();
     std::vector<size_t> widths(cols, 0);
     for (size_t c = 0; c < cols; ++c)
-        widths[c] = headers_[c].size();
+        widths[c] = display_width(headers_[c]);
     for (const auto& row : rows_)
         for (size_t c = 0; c < cols && c < row.size(); ++c)
-            widths[c] = std::max(widths[c], row[c].size());
+            widths[c] = std::max(widths[c], display_width(row[c]));
 
     auto print_row = [&](const std::vector<std::string>& cells) {
         for (size_t c = 0; c < cols; ++c) {
             const std::string& val = (c < cells.size()) ? cells[c] : "";
             std::cout << "  " << val;
             if (c + 1 < cols)
-                std::cout << std::string(widths[c] - val.size(), ' ');
+                std::cout << std::string(widths[c] - display_width(val), ' ');
         }
         std::cout << '\n';
     };
