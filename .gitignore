@@ -1,0 +1,31 @@
+# ── CMake 빌드 출력 ──────────────────────────────────────────
+build/
+build-test/
+cmake-build-*/
+
+# ── Visual Studio / MSVC ─────────────────────────────────────
+*.vcxproj.user
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.slnx
+.vs/
+x64/
+x86/
+
+# ── CLion ────────────────────────────────────────────────────
+.idea/
+
+# ── 커버리지 (llvm-cov) ──────────────────────────────────────
+*.profraw
+*.profdata
+coverage-report/
+
+# ── 생성 데이터 (dummy_generator 출력) ───────────────────────
+data/
+*.json
+
+# ── OS ───────────────────────────────────────────────────────
+Thumbs.db
+.DS_Store
