@@ -35,21 +35,23 @@ JSON 파일 기반 CRUD (`DataStore`). `json_lib`에 PUBLIC 링크.
 
 ---
 
-## 빌드 (요약)
+## 개발 프로세스
 
-```bat
-:: MSVC Release
-cmake -B build -G "Visual Studio 18 2026" -A x64
-cmake --build build --config Release
-:: → build\Release\SampleOrderSystem.exe
+각 Phase는 아래 순서로 진행한다. **커밋은 반드시 사람이 확인한 후 수행한다.**
 
-:: Clang + Ninja (테스트)
-cmake -B build-test -G Ninja -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ ^
-      -DCMAKE_BUILD_TYPE=Debug -DENABLE_TESTS=ON
-cmake --build build-test
+```
+1. 상세 설계   docs/design/phase{N}.md 작성
+                  ↓
+2. 구현 루프   orchestrator 에이전트 실행
+               (doc-verifier → implementer + sheet-writer → compliance-verifier → test-verifier)
+                  ↓
+3. 사람 확인   바이너리 동작·코드·테스트 결과 직접 검토
+                  ↓
+4. 커밋        Phase 1개 = 커밋 1개 (사람 승인 후에만 수행)
 ```
 
-cmake 경로: `C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe`
+- `docs/design/phase{N}.md`는 구현 전 반드시 작성한다. orchestrator와 implementer의 동작 기준이 된다.
+- 루프 중 자동 커밋은 수행하지 않는다. 커밋 권한은 사람에게만 있다.
 
 ---
 

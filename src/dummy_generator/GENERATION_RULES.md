@@ -65,7 +65,7 @@
 | `1` | Rejected |
 | `2` | Producing |
 | `3` | Confirmed |
-| `4` | Release |
+| `4` | Released |
 
 ---
 
@@ -98,7 +98,7 @@ shortage = 50, yield_rate = 0.85
 
 ### ordered_at
 - 2024-01-01T00:00:00 UTC 기준으로 0~180일 범위의 무작위 오프셋 적용
-- 형식: `HH:MM` (시각만 저장, 날짜 정보 미포함)
+- 형식: `YYYY-MM-DD HH:MM:SS`
 
 ### estimated_completion
 총 생산 소요 시간(duration):

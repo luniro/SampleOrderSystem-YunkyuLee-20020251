@@ -1,6 +1,6 @@
 # SampleOrderSystem — Architecture
 
-> **참조**: [CLAUDE.md](../CLAUDE.md) (빌드·CMake 구조) · [DATA_SCHEMA.md](../lib/persistence/DATA_SCHEMA.md) (데이터 스키마)
+> **참조**: [BUILD.md](../BUILD.md) (빌드 명령·툴체인) · [CLAUDE.md](../CLAUDE.md) (모듈 include 경로) · [DATA_SCHEMA.md](../lib/persistence/DATA_SCHEMA.md) (데이터 스키마)
 
 ---
 
@@ -41,4 +41,31 @@ SampleOrderSystem (exe)
  └── monitor_lib      → persistence → json_lib
 ```
 
-> CMake 타겟별 include 경로·링크 방식은 [CLAUDE.md](../CLAUDE.md) 참조.
+> CMake 타겟별 include 경로·링크 방식은 [CLAUDE.md](../CLAUDE.md) 참조.  
+> 빌드 명령·툴체인 경로·커버리지 측정은 [BUILD.md](../BUILD.md) 참조.
+
+---
+
+## 4. 디렉터리 구조
+
+```
+SampleOrderSystem/
+├── src/
+│   ├── main.cpp
+│   ├── mvc/              # 메인 애플리케이션 셸 (MVC 구조)
+│   ├── dummy_generator/  # 더미 데이터 생성 모듈 (DummyGenerator.exe)
+│   └── monitor/          # 시료·주문·생산 조회·표 렌더링 모듈
+├── lib/
+│   ├── json/             # 자체 JSON 파싱·직렬화 라이브러리
+│   ├── persistence/      # JSON 파일 기반 CRUD (DataStore)
+│   └── googletest-main/  # Google Test (테스트 빌드 전용)
+├── docs/                 # 설계·요구사항·계획 문서
+├── tests/                # gtest 화이트박스 테스트 (src/ 구조를 그대로 따름)
+│   ├── mvc/              #   ← src/mvc/ 대응
+│   ├── dummy_generator/  #   ← src/dummy_generator/ 대응
+│   └── monitor/          #   ← src/monitor/ 대응
+├── build/                # MSVC 빌드 출력 (gitignore 권장)
+├── build-test/           # Clang+Ninja 테스트 빌드 출력 (gitignore 권장)
+├── CMakeLists.txt
+└── BUILD.md
+```

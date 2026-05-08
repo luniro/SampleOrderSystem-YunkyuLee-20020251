@@ -83,7 +83,7 @@
 | 시료명 | `sample_name` | `String` | 생산 대상 시료명 (`Sample.sample_name` 참조) |
 | 주문수량 | `order_quantity` | `Integer` | 단위: 개 |
 | 부족분 | `shortage` | `Integer` | 재고 부족으로 추가 생산이 필요한 수량 (단위: 개) |
-| 실제생산량 | `actual_production` | `Integer` | 수율 적용 후 실제 생산해야 하는 수량 (단위: 개). `ceil(shortage / yield_rate)` |
+| 실제생산량 | `actual_production` | `Integer` | 수율 적용 후 실제 생산해야 하는 수량 (단위: 개). `ceil(shortage / (yield_rate × 0.9))` |
 | 주문시각 | `ordered_at` | `String` | 주문 접수 시각 (형식: `"YYYY-MM-DD HH:MM:SS"`) |
 | 예상완료 | `estimated_completion` | `String` | 총 생산 소요 시간·duration (형식: `"HH:MM"`, 예: `"03:30"`) |
 | 생산 시작 시각 | `production_start_at` | `String` | 이 주문의 생산 시작 예정 시각 (형식: `"YYYY-MM-DD HH:MM:SS"`). enqueue 시점에 확정. 큐가 비어있으면 `approved_at`, 선행 주문이 있으면 큐 마지막 주문의 `production_start_at + estimated_completion`으로 결정. |

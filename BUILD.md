@@ -13,13 +13,13 @@
 | C++ 표준 | C++17 |
 
 ### 테스트 빌드 (Clang)
-| 항목 | 버전                                     |
-|------|----------------------------------------|
-| 컴파일러 | Clang 20 (VS 2026 LLVM `clang-cl.exe`) |
-| 빌드 시스템 | CMake 4.2 + Ninja                      |
-| 테스트 프레임워크 | gtest / gmock                          |
-| 커버리지 도구 | llvm-cov / llvm-profdata               |
-| C++ 표준 | C++17                                  |
+| 항목 | 버전 |
+|------|------|
+| 컴파일러 | Clang 20.1.8 (`clang.exe` / VS 2026 LLVM 내장) |
+| 빌드 시스템 | CMake 4.2.3 + Ninja 1.12.1 |
+| 테스트 프레임워크 | gtest / gmock |
+| 커버리지 도구 | llvm-cov / llvm-profdata |
+| C++ 표준 | C++17 |
 
 ---
 
@@ -35,23 +35,14 @@ C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\CommonExtensio
 
 ---
 
-## 디렉터리 구조
+## 빌드 출력 디렉터리
 
-```
-SampleOrderSystem/
-├── src/
-│   ├── main.cpp
-│   ├── mvc/              # MVC 할 일 관리 모듈
-│   ├── dummy_generator/  # 더미 데이터 생성 모듈
-│   └── monitor/          # 주문·시료·생산 콘솔 조회 모듈
-├── lib/
-│   ├── json/             # 자체 JSON 라이브러리
-│   ├── persistence/      # JSON 파일 기반 CRUD 라이브러리
-│   └── googletest-main/  # Google Test (테스트 빌드 전용)
-├── build/                # CMake 빌드 출력 (gitignore 권장)
-├── CMakeLists.txt
-└── BUILD.md
-```
+| 디렉터리 | 용도 |
+|---------|------|
+| `build/` | MSVC 빌드 출력 (`build\Release\SampleOrderSystem.exe`) |
+| `build-test/` | Clang+Ninja 테스트 빌드 출력 |
+
+> 모듈 구조·디렉터리 레이아웃은 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) 참조.
 
 ---
 
@@ -87,15 +78,16 @@ cmake --build build --config Debug
 
 ### 테스트 빌드 (Clang + Ninja)
 
-Clang 20이 PATH에 있는 환경(VS 2026 LLVM 설치)에서 실행한다.
+`build/`는 MSVC 제너레이터 캐시가 있으므로 반드시 `build-test/`를 별도로 사용한다.  
+Clang이 PATH에 등록되지 않으므로 전체 경로를 지정한다.
 
 ```bat
 :: configure
-cmake -B build-test -G Ninja ^
-    -DCMAKE_C_COMPILER=clang ^
-    -DCMAKE_CXX_COMPILER=clang++ ^
-    -DCMAKE_BUILD_TYPE=Debug ^
-    -DENABLE_TESTS=ON
+cmake -S . -B build-test -G Ninja -DCMAKE_BUILD_TYPE=Debug -DENABLE_TESTS=ON ^
+  -DCMAKE_CXX_COMPILER="C:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\Llvm\x64\bin\clang++.exe" ^
+  -DCMAKE_C_COMPILER="C:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\Llvm\x64\bin\clang.exe" ^
+  -DCMAKE_MAKE_PROGRAM="C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja\ninja.exe" ^
+  -DCMAKE_RC_COMPILER="C:\Program Files (x86)\Windows Kits\10\bin\10.0.26100.0\x64\rc.exe"
 
 :: build
 cmake --build build-test
@@ -105,16 +97,24 @@ cmake --build build-test
 
 ### 커버리지 측정 (테스트 빌드 후)
 
+`<target>`은 CMakeLists.txt에서 확인한 테스트 타깃명으로 대체한다.
+
 ```bat
 :: 프로파일 데이터 병합
-llvm-profdata merge -sparse default.profraw -o coverage.profdata
+"C:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\Llvm\x64\bin\llvm-profdata.exe" ^
+  merge -sparse build-test\<target>.profraw -o build-test\<target>.profdata
 
 :: 커버리지 리포트 출력
-llvm-cov report ./build-test/SampleOrderSystem.exe -instr-profile=coverage.profdata
+"C:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\Llvm\x64\bin\llvm-cov.exe" ^
+  report build-test\<target>.exe ^
+  -instr-profile=build-test\<target>.profdata ^
+  -ignore-filename-regex="(googletest|gtest|gmock|tests/)"
 
 :: HTML 리포트 생성
-llvm-cov show ./build-test/SampleOrderSystem.exe -instr-profile=coverage.profdata ^
-    -format=html -output-dir=coverage-report
+"C:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\Llvm\x64\bin\llvm-cov.exe" ^
+  show build-test\<target>.exe ^
+  -instr-profile=build-test\<target>.profdata ^
+  -format=html -output-dir=coverage-report
 ```
 
 ---
