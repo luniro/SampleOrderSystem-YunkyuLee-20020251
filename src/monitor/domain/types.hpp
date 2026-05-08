@@ -20,12 +20,14 @@ struct Order {
     std::string customer_name;
     int64_t     order_quantity;
     int         order_status;
+    std::string approved_at;
+    std::string released_at;
 
     static constexpr int STATUS_RESERVED  = 0;
     static constexpr int STATUS_REJECTED  = 1;
     static constexpr int STATUS_PRODUCING = 2;
     static constexpr int STATUS_CONFIRMED = 3;
-    static constexpr int STATUS_RELEASE   = 4;
+    static constexpr int STATUS_RELEASED  = 4;
 
     static Order from_json(const JsonValue& v);
 };
@@ -39,6 +41,7 @@ struct Production {
     int64_t     actual_production;
     std::string ordered_at;
     std::string estimated_completion;
+    std::string production_start_at;
 
     static Production from_json(const JsonValue& v);
 };

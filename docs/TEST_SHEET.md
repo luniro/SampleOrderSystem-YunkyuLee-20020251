@@ -142,10 +142,46 @@ Phase 0-1은 `DataStore`(lib/persistence)의 null 포함 신규 필드(`approved
 
 ---
 
+### TG-MT: Monitor Domain Types — Phase 0-3 from_json 역직렬화 검증
+
+#### 사전 조건 공통 사항
+
+- `JsonValue` 오브젝트를 직접 구성하여 각 `from_json` 정적 메서드에 전달한다.
+- null 값 필드는 `JsonValue()` 또는 `JsonValue(nullptr)`로 생성한다.
+- 상수 정의 검증은 컴파일 타임 값을 런타임에서 확인한다.
+
+---
+
+| TC | 설명 | 사전 조건 | 입력 시퀀스 | 기대 출력 | 분류 | 판정 |
+|----|------|----------|------------|----------|------|------|
+| TC-MT-01 | Sample::from_json — 모든 필드 정상 역직렬화 | 없음 | `id=1`, `sample_id="SMP-001"`, `sample_name="산화철 나노입자"`, `avg_production_time=4.5`, `yield_rate=0.87`, `current_stock=200` 으로 JsonValue 구성 후 `Sample::from_json()` 호출 | `s.id==1`, `s.sample_id=="SMP-001"`, `s.sample_name=="산화철 나노입자"`, `s.avg_production_time==4.5`, `s.yield_rate==0.87`, `s.current_stock==200` | 정상 | PASS |
+| TC-MT-02 | Order::from_json — approved_at=string, released_at=null | 없음 | `order_status=2(Producing)`, `approved_at="2024-05-01 10:30:00"`, `released_at=null` 포함 JsonValue 구성 후 `Order::from_json()` 호출 | `o.order_status==2`, `o.approved_at=="2024-05-01 10:30:00"`, `o.released_at==""` (빈 문자열) | 정상 | PASS |
+| TC-MT-03 | Order::from_json — approved_at=null, released_at=null (Reserved) | 없음 | `order_status=0(Reserved)`, `approved_at=null`, `released_at=null` 포함 JsonValue 구성 후 `Order::from_json()` 호출 | `o.order_status==0`, `o.approved_at==""` (빈 문자열), `o.released_at==""` (빈 문자열) | 정상 | PASS |
+| TC-MT-04 | Order::from_json — approved_at=string, released_at=string (Released) | 없음 | `order_status=4(Released)`, `approved_at="2024-05-01 09:00:00"`, `released_at="2024-05-02 14:00:00"` 포함 JsonValue 구성 후 `Order::from_json()` 호출 | `o.order_status==4`, `o.approved_at=="2024-05-01 09:00:00"`, `o.released_at=="2024-05-02 14:00:00"` | 정상 | PASS |
+| TC-MT-05 | Order::from_json — 기존 필드(order_number, sample_id, customer_name, order_quantity) 정상 역직렬화 | 없음 | `order_number="ORD-20240501-001"`, `sample_id="SMP-001"`, `customer_name="홍길동"`, `order_quantity=50`, `order_status=0`, `approved_at=null`, `released_at=null` 구성 | `o.order_number=="ORD-20240501-001"`, `o.sample_id=="SMP-001"`, `o.customer_name=="홍길동"`, `o.order_quantity==50` | 정상 | PASS |
+| TC-MT-06 | Production::from_json — production_start_at=string 정상 역직렬화 | 없음 | `production_start_at="2024-05-01 10:30:00"` 포함한 완전한 Production JsonValue 구성 후 `Production::from_json()` 호출 | `p.production_start_at=="2024-05-01 10:30:00"` | 정상 | PASS |
+| TC-MT-07 | Production::from_json — 모든 필드 정상 역직렬화 | 없음 | `id=1`, `order_number="ORD-20240501-001"`, `sample_name="산화철 나노입자"`, `order_quantity=50`, `shortage=20`, `actual_production=23`, `ordered_at="2024-05-01 08:00:00"`, `estimated_completion="03:30"`, `production_start_at="2024-05-01 10:30:00"` 구성 | 모든 필드가 입력값과 일치 | 정상 | PASS |
+| TC-MT-08 | Order::STATUS_RESERVED == 0 | 없음 | `Order::STATUS_RESERVED` 값 확인 | `Order::STATUS_RESERVED == 0` | 경계 | PASS |
+| TC-MT-09 | Order::STATUS_REJECTED == 1 | 없음 | `Order::STATUS_REJECTED` 값 확인 | `Order::STATUS_REJECTED == 1` | 경계 | PASS |
+| TC-MT-10 | Order::STATUS_PRODUCING == 2 | 없음 | `Order::STATUS_PRODUCING` 값 확인 | `Order::STATUS_PRODUCING == 2` | 경계 | PASS |
+| TC-MT-11 | Order::STATUS_CONFIRMED == 3 | 없음 | `Order::STATUS_CONFIRMED` 값 확인 | `Order::STATUS_CONFIRMED == 3` | 경계 | PASS |
+| TC-MT-12 | Order::STATUS_RELEASED == 4 (RELEASE 오타 수정 확인) | 없음 | `Order::STATUS_RELEASED` 값 확인. `STATUS_RELEASE`가 아닌 `STATUS_RELEASED`로 명명됨을 확인 | `Order::STATUS_RELEASED == 4` | 경계 | PASS |
+| TC-MT-13 | Order::from_json — id 필드 정상 역직렬화 | 없음 | `id=42` 포함 JsonValue 구성 후 `Order::from_json()` 호출 | `o.id==42` | 정상 | PASS |
+| TC-MT-14 | OrderRepository::find_all — DataStore에 저장된 Order 레코드 조회 | 임시 파일에 ORD-A, ORD-B, ORD-C를 DataStore로 create 완료 | `OrderRepository(파일경로).find_all()` 호출 | 반환 벡터 크기==3, 각 레코드의 order_number가 입력과 일치, ORD-A의 approved_at=="2024-05-01 10:30:00", ORD-B의 approved_at=="" | 정상 | PASS |
+| TC-MT-15 | OrderRepository::find_by_status — 상태별 필터 | 임시 파일에 ORD-A(status=2), ORD-B(status=0), ORD-C(status=4) create 완료 | `find_by_status(2)` 호출 | 반환 벡터 크기==1, `result[0].order_number=="ORD-20240501-001"` | 정상 | PASS |
+| TC-MT-16 | OrderRepository::find_by_order_number — 존재하는 주문번호 조회 | 임시 파일에 ORD-A create 완료 | `find_by_order_number("ORD-20240501-001")` 호출 | 반환 optional has_value()==true, `value().approved_at=="2024-05-01 10:30:00"` | 정상 | PASS |
+| TC-MT-17 | OrderRepository::find_by_order_number — 존재하지 않는 주문번호 조회 | 임시 파일에 ORD-A create 완료 | `find_by_order_number("ORD-NONEXISTENT")` 호출 | 반환 optional has_value()==false (nullopt) | 이상 | PASS |
+| TC-MT-18 | ProductionRepository::find_all — 저장된 Production 레코드 조회 | 임시 파일에 PRD-A create 완료 | `ProductionRepository(파일경로).find_all()` 호출 | 반환 벡터 크기==1, `result[0].production_start_at=="2024-05-01 10:30:00"` | 정상 | PASS |
+| TC-MT-19 | ProductionRepository::find_by_order_number — 존재하는 주문번호 조회 | 임시 파일에 PRD-A create 완료 | `find_by_order_number("ORD-20240501-001")` 호출 | 반환 optional has_value()==true, `value().production_start_at=="2024-05-01 10:30:00"` | 정상 | PASS |
+| TC-MT-20 | ProductionRepository::find_by_order_number — 존재하지 않는 주문번호 조회 | 임시 파일에 PRD-A create 완료 | `find_by_order_number("ORD-NONEXISTENT")` 호출 | 반환 optional has_value()==false (nullopt) | 이상 | PASS |
+
+---
+
 ## 합계
 
 | 그룹 | TC 수 |
 |------|------|
 | TG-DS | 25 |
 | TG-DG | 20 |
-| **합계** | **45** |
+| TG-MT | 20 |
+| **합계** | **65** |
