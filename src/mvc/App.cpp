@@ -3,6 +3,7 @@
 #include "monitor/ui/table_printer.hpp"
 #include "monitor/util/timestamp.hpp"
 #include "monitor/util/production_calc.hpp"
+#include <algorithm>
 #include <climits>
 #include <ctime>
 #include <filesystem>
@@ -30,6 +31,8 @@ App::App(AppConfig config)
 void App::run() {
     bool running = true;
     while (running) {
+        evaluate_producing_orders();  // FR-L-09/FR-L-10
+
         std::cout << "\n=== SampleOrderSystem ===\n"
                   << " 1. 시료 관리\n"
                   << " 2. 주문 접수\n"
@@ -757,11 +760,240 @@ void App::monitoring_stock_level() {
 }
 
 void App::menu_release_processing() {
-    std::cout << "준비 중\n";
+    while (release_process_list()) {
+        // 한 건 처리 후 목록 재표시
+    }
+}
+
+// ── 출고 처리: Confirmed 목록 표시 + 선택 ─────────────────────────────────────
+// 반환값: true=처리 완료(루프 계속), false=종료(빈 목록 또는 사용자 0 선택)
+
+bool App::release_process_list() {
+    order_repo_.refresh();
+    auto confirmed = order_repo_.find_by_status(Order::STATUS_CONFIRMED);
+
+    if (confirmed.empty()) {
+        std::cout << "출고 가능한 주문이 없습니다.\n";
+        return false;
+    }
+
+    // 목록 출력 (FR-R-01)
+    TablePrinter tp({"No", "주문번호", "고객", "시료ID", "수량(ea)"});
+    for (std::size_t i = 0; i < confirmed.size(); ++i) {
+        const auto& o = confirmed[i];
+        tp.add_row({
+            std::to_string(i + 1),
+            o.order_number,
+            o.customer_name,
+            o.sample_id,
+            std::to_string(o.order_quantity)
+        });
+    }
+    tp.print();
+
+    // 번호 입력 (FR-R-02)
+    int choice = InputUtil::read_int(
+        "번호를 입력하세요 (0: 돌아가기): ",
+        0, static_cast<int>(confirmed.size()));
+
+    if (choice == 0) return false;
+
+    release_process_detail(confirmed[static_cast<std::size_t>(choice - 1)]);
+    return true;
+}
+
+// ── 출고 처리: 출고/취소 선택 및 처리 ────────────────────────────────────────
+
+void App::release_process_detail(const Order& order) {
+    // 주문 정보 출력
+    std::cout << "\n[ 출고 확인 ]\n"
+              << "  주문번호: " << order.order_number  << "\n"
+              << "  고객    : " << order.customer_name << "\n"
+              << "  시료 ID : " << order.sample_id     << "\n"
+              << "  수량    : " << order.order_quantity << " ea\n\n"
+              << " 1. 출고  0. 취소\n";
+
+    int action = InputUtil::read_int("> ", 0, 1);
+    if (action == 0) return;  // 취소 → 목록 복귀 (FR-R-04)
+
+    // released_at 기록
+    std::string released_at = Timestamp::now();
+
+    // 주문 상태 Released 전환 + released_at 저장 (FR-R-05)
+    JsonValue upd_order = JsonValue::object();
+    upd_order["order_status"] = JsonValue(int64_t(Order::STATUS_RELEASED));
+    upd_order["released_at"]  = JsonValue(released_at);
+    order_store_.update(order.id, upd_order);
+    order_repo_.refresh();
+
+    // current_stock 차감 (FR-R-05) — 최신 파일 값 기준
+    sample_repo_.refresh();
+    auto sample_opt = sample_repo_.find_by_sample_id(order.sample_id);
+    if (!sample_opt.has_value()) {
+        std::cout << "시료 정보를 찾을 수 없습니다.\n";
+        return;
+    }
+    const Sample& sample = sample_opt.value();
+    JsonValue upd_sample = JsonValue::object();
+    upd_sample["current_stock"] = JsonValue(sample.current_stock - order.order_quantity);
+    sample_store_.update(sample.id, upd_sample);
+    sample_repo_.refresh();
+
+    // 처리 결과 출력 (FR-R-06)
+    std::cout << "출고 처리가 완료되었습니다.\n"
+              << "  주문번호: " << order.order_number  << "\n"
+              << "  출고수량: " << order.order_quantity << " ea\n"
+              << "  처리일시: " << released_at          << "\n"
+              << "  상태    : Confirmed -> Released\n";
 }
 
 void App::menu_production_line() {
-    std::cout << "준비 중\n";
+    production_line_show();
+}
+
+void App::production_line_show() {
+    order_repo_.refresh();
+    production_repo_.refresh();
+    sample_repo_.refresh();
+
+    // 큐 구성: Producing 주문을 approved_at 오름차순 정렬 (FR-L-04)
+    std::vector<Order> producing;
+    for (const auto& o : order_repo_.find_all())
+        if (o.order_status == Order::STATUS_PRODUCING)
+            producing.push_back(o);
+    std::sort(producing.begin(), producing.end(),
+        [](const Order& a, const Order& b) { return a.approved_at < b.approved_at; });
+
+    int64_t now_epoch = Timestamp::parse(Timestamp::now());
+
+    // ── 생산 현황 ──────────────────────────────────────────────
+    std::cout << "\n[ 생산 현황 ]\n";
+    if (producing.empty()) {
+        std::cout << "  생산 중인 주문 없음\n";
+    } else {
+        const Order& front = producing[0];
+        auto prod_opt   = production_repo_.find_by_order_number(front.order_number);
+        auto sample_opt = sample_repo_.find_by_sample_id(front.sample_id);
+
+        if (!prod_opt.has_value() || !sample_opt.has_value()) {
+            std::cout << "  시료/생산 정보를 찾을 수 없습니다.\n";
+        } else {
+            const Production& prod = prod_opt.value();
+            int64_t avail      = prod.order_quantity - prod.shortage;
+            int     yield_pct  = static_cast<int>(sample_opt.value().yield_rate * 100);
+            int64_t comp_epoch = Timestamp::completion_epoch(
+                prod.production_start_at, prod.estimated_completion);
+            double  pct        = Timestamp::calc_progress(
+                prod.production_start_at, prod.estimated_completion, now_epoch);
+            std::string comp_str = Timestamp::format_completion(comp_epoch, now_epoch);
+
+            std::cout << "  주문번호    : " << front.order_number       << "\n"
+                      << "  시료명      : " << prod.sample_name          << "\n"
+                      << "  주문량      : " << prod.order_quantity       << " ea\n"
+                      << "  기존 가용재고: " << avail                     << " ea\n"
+                      << "  부족분      : " << prod.shortage             << " ea\n"
+                      << "  실 생산량   : " << prod.actual_production    << " ea\n"
+                      << "  수율        : " << yield_pct                 << " %\n"
+                      << "  총생산시간  : " << prod.estimated_completion << "\n"
+                      << "  진행률      : " << make_progress_bar(pct)    << "\n"
+                      << "  완료 예정   : " << comp_str                  << "\n";
+        }
+    }
+
+    // ── 대기 주문 ──────────────────────────────────────────────
+    std::cout << "\n[ 대기 주문 ]\n";
+    if (producing.size() <= 1) {
+        std::cout << "  대기 중인 주문 없음\n";
+    } else {
+        TablePrinter tp({"순서", "주문번호", "시료명", "주문량(ea)",
+                         "부족분(ea)", "실 생산량(ea)", "예상 완료시간"});
+        for (std::size_t i = 1; i < producing.size(); ++i) {
+            const Order& o = producing[i];
+            auto p_opt = production_repo_.find_by_order_number(o.order_number);
+            if (!p_opt.has_value()) continue;
+            const Production& p = p_opt.value();
+            int64_t comp_ep = Timestamp::completion_epoch(
+                p.production_start_at, p.estimated_completion);
+            std::string comp = Timestamp::format_completion(comp_ep, now_epoch);
+            tp.add_row({
+                std::to_string(i),
+                o.order_number,
+                p.sample_name,
+                std::to_string(p.order_quantity),
+                std::to_string(p.shortage),
+                std::to_string(p.actual_production),
+                comp
+            });
+        }
+        tp.print_paged();
+    }
+
+    std::cout << "\n계속하려면 Enter를 누르세요...";
+    std::string dummy;
+    std::getline(std::cin, dummy);
+}
+
+std::string App::make_progress_bar(double pct, int width) {
+    int filled = static_cast<int>(pct / 100.0 * width);
+    std::string bar = "[";
+    for (int i = 0; i < width; ++i)
+        bar += (i < filled) ? u8"█" : u8"░";
+    bar += "] ";
+    bar += std::to_string(static_cast<int>(pct));
+    bar += " %";
+    return bar;
+}
+
+void App::evaluate_producing_orders() {
+    order_repo_.refresh();
+    production_repo_.refresh();
+
+    int64_t now_epoch = Timestamp::parse(Timestamp::now());
+
+    struct QueueEntry { Order order; Production prod; };
+    std::vector<QueueEntry> queue;
+
+    for (const auto& o : order_repo_.find_all()) {
+        if (o.order_status != Order::STATUS_PRODUCING) continue;
+        auto p_opt = production_repo_.find_by_order_number(o.order_number);
+        if (!p_opt.has_value()) continue;
+        queue.push_back({o, p_opt.value()});
+    }
+
+    std::sort(queue.begin(), queue.end(),
+        [](const QueueEntry& a, const QueueEntry& b) {
+            return a.prod.production_start_at < b.prod.production_start_at;
+        });
+
+    for (const auto& entry : queue) {
+        int64_t comp_epoch = Timestamp::completion_epoch(
+            entry.prod.production_start_at, entry.prod.estimated_completion);
+
+        if (comp_epoch > now_epoch) continue;
+
+        // Producing → Confirmed 전환
+        JsonValue upd_order = JsonValue::object();
+        upd_order["order_status"] = JsonValue(int64_t(Order::STATUS_CONFIRMED));
+        order_store_.update(entry.order.id, upd_order);
+
+        // current_stock += actual_production (루프마다 최신 재고 재조회)
+        sample_repo_.refresh();
+        auto sample_opt = sample_repo_.find_by_sample_id(entry.order.sample_id);
+        if (sample_opt.has_value()) {
+            const Sample& s = sample_opt.value();
+            JsonValue upd_sample = JsonValue::object();
+            upd_sample["current_stock"] = JsonValue(
+                s.current_stock + entry.prod.actual_production);
+            sample_store_.update(s.id, upd_sample);
+        }
+
+        std::cout << "[자동 전환] " << entry.order.order_number
+                  << ": Producing -> Confirmed"
+                  << " (재고 +" << entry.prod.actual_production << " ea)\n";
+    }
+
+    order_repo_.refresh();
+    sample_repo_.refresh();
 }
 
 } // namespace mvc

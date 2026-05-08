@@ -274,3 +274,29 @@ else()
 endif()
 
 gtest_discover_tests(test_monitoring)
+
+# ── Phase 6: Release Processing tests ────────────────────────────────────────
+add_executable(test_release_processing
+    mvc/test_release_processing.cpp
+)
+
+target_include_directories(test_release_processing PRIVATE
+    ${CMAKE_SOURCE_DIR}/lib
+    ${CMAKE_SOURCE_DIR}/lib/persistence
+    ${CMAKE_SOURCE_DIR}/src
+)
+
+target_link_libraries(test_release_processing PRIVATE
+    mvc
+    monitor_lib
+    persistence
+    GTest::gtest_main
+)
+
+if(MSVC)
+    target_compile_options(test_release_processing PRIVATE /W4 /utf-8)
+else()
+    target_compile_options(test_release_processing PRIVATE -Wall -Wextra)
+endif()
+
+gtest_discover_tests(test_release_processing)

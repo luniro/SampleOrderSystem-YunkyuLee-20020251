@@ -432,6 +432,33 @@ Phase 0-1은 `DataStore`(lib/persistence)의 null 포함 신규 필드(`approved
 
 ---
 
+---
+
+### TG-RL: 출고 처리 — Phase 6 (메뉴 5) 검증
+
+#### 사전 조건 공통 사항
+
+- `mvc::App`을 `AppConfig{data_dir = <임시 디렉터리>}`로 초기화한다.
+- 각 TC는 별도의 임시 디렉터리를 사용하여 독립적인 초기 상태를 보장한다.
+- `std::cin` / `std::cout`을 `std::istringstream` / `std::ostringstream`으로 리디렉션하여 `App::run()`을 구동한다.
+- 시료·주문 픽스처는 `DataStore`를 통해 직접 삽입하거나 메뉴 입력 시퀀스로 생성한다.
+- Confirmed 주문 삽입 시 `order_status = 3(Confirmed)`, `approved_at = "YYYY-MM-DD HH:MM:SS"`, `released_at = null`로 설정한다.
+
+---
+
+| TC | 설명 | 사전 조건 | 입력 시퀀스 | 기대 출력 | 분류 | 판정 |
+|----|------|----------|------------|----------|------|------|
+| TC-RL-01 | Confirmed 주문 없을 때 안내 메시지 출력 후 반환 | 빈 DB (또는 Confirmed 없는 DB) | 메인5 → (자동 false 반환) → 0(종료) | 출력에 "출고 가능한 주문이 없습니다" 포함 | 경계 | |
+| TC-RL-02 | 출고 선택 → order_status = Released(4) 전환 확인 | 시료(재고100) + Confirmed 주문(수량50) 직접 삽입 | 메인5 → 1(선택) → 1(출고) → 0(종료) | orders.json 레코드의 `order_status == 4(Released)` | 정상 | |
+| TC-RL-03 | 출고 선택 → released_at 기록 확인 (null이 아닌 타임스탬프) | 시료(재고100) + Confirmed 주문(수량50) 직접 삽입 | 메인5 → 1(선택) → 1(출고) → 0(종료) | orders.json 레코드의 `released_at.is_null() == false`, 크기==19, `"YYYY-MM-DD HH:MM:SS"` 형식 | 정상 | |
+| TC-RL-04 | 출고 선택 → current_stock -= order_quantity 확인 | 시료(재고100) + Confirmed 주문(수량50) 직접 삽입 | 메인5 → 1(선택) → 1(출고) → 0(종료) | samples.json 레코드의 `current_stock == 50` (100 - 50) | 정상 | |
+| TC-RL-05 | 취소(0) 선택 → order_status 미변경, current_stock 미변경 확인 | 시료(재고100) + Confirmed 주문(수량50) 직접 삽입 | 메인5 → 1(선택) → 0(취소) → 0(목록) → 0(종료) | orders.json 레코드의 `order_status == 3(Confirmed)` 유지. samples.json 레코드의 `current_stock == 100` 유지 | 정상 | |
+| TC-RL-06 | 결과 출력에 주문번호·출고수량·처리일시·상태변화 포함 확인 (FR-R-06) | 시료(재고100) + Confirmed 주문("ORD-20240501-003", 수량100) 직접 삽입 | 메인5 → 1(선택) → 1(출고) → 0(종료) | 출력에 "출고 처리가 완료되었습니다", "ORD-20240501-003", "100 ea", "Confirmed", "Released" 모두 포함 | 정상 | |
+| TC-RL-07 | 출고 후 목록 재조회 시 해당 주문이 Confirmed 목록에서 제거 확인 | 시료(재고100) + Confirmed 주문 1건(수량50) 직접 삽입 | 메인5 → 1(선택) → 1(출고) → (루프 재진입, 자동 false 반환) → 0(종료) | 두 번째 메인5 진입 후 "출고 가능한 주문이 없습니다" 출력 | 정상 | |
+| TC-RL-08 | current_stock은 출고 직전 최신 파일 값 기준으로 차감 확인 | 시료(초기재고200, 이후 별도 DataStore로 재고 180으로 update) + Confirmed 주문(수량50) 직접 삽입 | 메인5 → 1(선택) → 1(출고) → 0(종료) | samples.json 레코드의 `current_stock == 130` (180 - 50) — App 초기화 전 재고가 아닌 출고 직전 최신 값 180 기준 | 정상 | |
+
+---
+
 ## 합계
 
 | 그룹 | TC 수 |
@@ -448,4 +475,5 @@ Phase 0-1은 `DataStore`(lib/persistence)의 null 포함 신규 필드(`approved
 | TG-OR | 8 |
 | TG-AP | 10 |
 | TG-MN | 10 |
-| **합계** | **180** |
+| TG-RL | 8 |
+| **합계** | **188** |

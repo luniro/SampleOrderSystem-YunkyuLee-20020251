@@ -57,6 +57,16 @@ private:
     void monitoring_order_count();   // FR-M-01~02
     void monitoring_stock_level();   // FR-M-03~05
 
+    // 출고 처리 서브 메서드 (Phase 6)
+    bool release_process_list();                      // Confirmed 목록 표시 + 선택
+    void release_process_detail(const Order& order);  // 출고/취소 선택 + 처리
+
+    // 생산 라인 서브 메서드
+    void production_line_show();
+    static std::string make_progress_bar(double pct, int width = 20);
+
+    void evaluate_producing_orders();  // FR-L-09 / FR-L-10
+
     // 출력 헬퍼 (static)
     static void print_sample_detail(const Sample& s);
     static void print_sample_table(const std::vector<Sample>& samples);
