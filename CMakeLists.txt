@@ -42,3 +42,22 @@ else()
     target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra)
 endif()
 
+add_executable(DummyGenerator
+    src/dummy_generator/dummy_main.cpp
+)
+
+target_include_directories(DummyGenerator PRIVATE
+    ${CMAKE_SOURCE_DIR}/lib
+    ${CMAKE_SOURCE_DIR}/src
+)
+
+target_link_libraries(DummyGenerator PRIVATE
+    dummy_generator
+)
+
+if(MSVC)
+    target_compile_options(DummyGenerator PRIVATE /W4 /utf-8)
+else()
+    target_compile_options(DummyGenerator PRIVATE -Wall -Wextra)
+endif()
+

@@ -70,3 +70,29 @@ else()
 endif()
 
 gtest_discover_tests(test_monitor_types)
+
+# ── Phase 0-4: mvc App menu shell tests ─────────────────────────────────────
+add_executable(test_mvc_app
+    mvc/test_mvc_app.cpp
+)
+
+target_include_directories(test_mvc_app PRIVATE
+    ${CMAKE_SOURCE_DIR}/lib
+    ${CMAKE_SOURCE_DIR}/lib/persistence
+    ${CMAKE_SOURCE_DIR}/src
+)
+
+target_link_libraries(test_mvc_app PRIVATE
+    mvc
+    monitor_lib
+    persistence
+    GTest::gtest_main
+)
+
+if(MSVC)
+    target_compile_options(test_mvc_app PRIVATE /W4 /utf-8)
+else()
+    target_compile_options(test_mvc_app PRIVATE -Wall -Wextra)
+endif()
+
+gtest_discover_tests(test_mvc_app)

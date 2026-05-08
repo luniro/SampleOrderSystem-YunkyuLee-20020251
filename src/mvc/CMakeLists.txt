@@ -1,7 +1,4 @@
 add_library(mvc STATIC
-    model/TaskModel.cpp
-    view/ConsoleView.cpp
-    controller/TaskController.cpp
     App.cpp
 )
 
@@ -9,6 +6,8 @@ add_library(mvc STATIC
 target_include_directories(mvc PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/..>
 )
+
+target_link_libraries(mvc PUBLIC monitor_lib)
 
 target_compile_features(mvc PUBLIC cxx_std_17)
 

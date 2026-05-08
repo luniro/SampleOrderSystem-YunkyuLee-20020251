@@ -1,8 +1,9 @@
-#include <iostream>
-//#include "json/json.hpp"
+#include "mvc/App.hpp"
 
-int main()
-{
-	std::cout << "Hello, world!" << std::endl;
-	return 0;
+int main() {
+    mvc::AppConfig config;
+    config.data_dir = ".";
+    mvc::App app(config);
+    app.run();
+    return 0;
 }
