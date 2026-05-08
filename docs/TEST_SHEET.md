@@ -380,6 +380,32 @@ Phase 0-1은 `DataStore`(lib/persistence)의 null 포함 신규 필드(`approved
 
 ---
 
+### TG-AP: 주문 처리 — Phase 4 (메뉴 3: 승인·거절·생산 레코드 생성) 검증
+
+#### 사전 조건 공통 사항
+
+- `mvc::App`을 `AppConfig{data_dir = <임시 디렉터리>}`로 초기화한다.
+- 각 TC는 별도의 임시 디렉터리를 사용하여 독립적인 초기 상태를 보장한다.
+- `std::cin` / `std::cout`을 `std::istringstream` / `std::ostringstream`으로 리디렉션하여 `App::run()`을 구동한다.
+- 시료 등록은 메뉴 1을 통해 사전 수행한다. 주문 접수는 메뉴 2를 통해 사전 수행한다.
+
+---
+
+| TC | 설명 | 사전 조건 | 입력 시퀀스 | 기대 출력 | 분류 | 판정 |
+|----|------|----------|------------|----------|------|------|
+| TC-AP-01 | Reserved 주문 없을 때 안내 메시지 출력 | 빈 DB | 메인3 → 0(종료) | "처리 대기 중인 주문이 없습니다" 포함 | 경계 | PASS |
+| TC-AP-02 | 재고 충분(shortage=0) → 승인 → Confirmed 전환 확인 | 시료(재고100) + 주문(수량50) | 메인3 → 1(선택) → 1(승인) → 0(종료) | orders.json의 order_status==3(Confirmed), 출력에 "Confirmed" 포함 | 정상 | PASS |
+| TC-AP-03 | 재고 부족, Producing 없음(Case 1) → 승인 → Producing 전환 + 생산 레코드 생성 확인 | 시료(재고30) + 주문(수량50) | 메인3 → 1(선택) → 1(승인) → 0(종료) | order_status==2(Producing), productions.json 1건, shortage==20 | 정상 | PASS |
+| TC-AP-04 | 재고 부족, Producing 이미 존재(Case 2) → shortage = order_quantity 확인 | 시료(재고30) + 주문1(50) + 주문2(40) | 메인3 → 1 → 1 → 1 → 1 → 0(종료) | 두 번째 생산 레코드의 shortage==40 (order_quantity 전량) | 정상 | PASS |
+| TC-AP-05 | 거절 → Rejected 전환 확인 | 시료(재고100) + 주문(수량50) | 메인3 → 1(선택) → 2(거절) → 0(종료) | order_status==1(Rejected), 출력에 "Rejected" 포함 | 정상 | PASS |
+| TC-AP-06 | 취소(0) → 주문 상태 미변경 확인 | 시료(재고100) + 주문(수량50) | 메인3 → 1(선택) → 0(취소) → 0(목록) → 0(종료) | order_status==0(Reserved) 유지 | 정상 | PASS |
+| TC-AP-07 | approved_at 기록 확인 (승인 시) | 시료(재고100) + 주문(수량50) | 메인3 → 1 → 1(승인) → 0(종료) | approved_at이 null 아님, "YYYY-MM-DD HH:MM:SS" 형식(크기19, 구분자 일치) | 정상 | PASS |
+| TC-AP-08 | production_start_at — 큐 빈 경우 = approved_at | 시료(재고10) + 주문(수량50) | 메인3 → 1 → 1(승인 → Producing) → 0(종료) | prod_records[0].production_start_at == ord_records[0].approved_at | 정상 | PASS |
+| TC-AP-09 | production_start_at — 선행 Producing 있을 경우 = 선행 완료 시각 | 시료(재고0) + 주문1(50) + 주문2(40) | 메인3 → 주문1 승인 → 주문2 승인 → 0(종료) | prod_records[1].production_start_at == Timestamp::format(completion_epoch(prod_records[0])) | 정상 | PASS |
+| TC-AP-10 | 가용 재고 계산: Confirmed 선점분 차감 확인 | 시료(재고100) + 주문1(80) + 주문2(30) | 메인3 → 주문1 승인(Confirmed) → 주문2 승인(Producing) → 0(종료) | 두 번째 주문: shortage==10(=30−20), 출력에 "20 ea" 가용재고 포함 | 정상 | PASS |
+
+---
+
 ## 합계
 
 | 그룹 | TC 수 |
@@ -394,4 +420,5 @@ Phase 0-1은 `DataStore`(lib/persistence)의 null 포함 신규 필드(`approved
 | TG-TP | 10 |
 | TG-SM | 20 |
 | TG-OR | 8 |
-| **합계** | **160** |
+| TG-AP | 10 |
+| **합계** | **170** |

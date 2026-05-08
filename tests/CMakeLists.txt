@@ -222,3 +222,29 @@ else()
 endif()
 
 gtest_discover_tests(test_order_reception)
+
+# ── Phase 4: Order Processing tests ──────────────────────────────────────────
+add_executable(test_order_processing
+    mvc/test_order_processing.cpp
+)
+
+target_include_directories(test_order_processing PRIVATE
+    ${CMAKE_SOURCE_DIR}/lib
+    ${CMAKE_SOURCE_DIR}/lib/persistence
+    ${CMAKE_SOURCE_DIR}/src
+)
+
+target_link_libraries(test_order_processing PRIVATE
+    mvc
+    monitor_lib
+    persistence
+    GTest::gtest_main
+)
+
+if(MSVC)
+    target_compile_options(test_order_processing PRIVATE /W4 /utf-8)
+else()
+    target_compile_options(test_order_processing PRIVATE -Wall -Wextra)
+endif()
+
+gtest_discover_tests(test_order_processing)

@@ -22,7 +22,8 @@ private:
 
     // 쓰기용 DataStore (persistence layer)
     DataStore sample_store_;
-    DataStore order_store_;   // 주문 쓰기용
+    DataStore order_store_;      // 주문 쓰기용
+    DataStore production_store_; // 생산 레코드 쓰기용 (신규)
 
     // 읽기용 Repository (monitor layer)
     SampleRepository     sample_repo_;
@@ -44,6 +45,13 @@ private:
 
     // 주문 접수 서브 메서드
     void order_reception();
+
+    // 주문 처리 서브 메서드 (Phase 4)
+    // order_process_list: 목록 표시·선택·처리. true=계속, false=루프 종료
+    bool order_process_list();
+    void order_process_detail(const Order& order);
+    void order_approve(const Order& order);
+    void order_reject(const Order& order);
 
     // 출력 헬퍼 (static)
     static void print_sample_detail(const Sample& s);

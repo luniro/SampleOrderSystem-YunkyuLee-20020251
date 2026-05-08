@@ -81,12 +81,14 @@ TEST(TG_MVC, TC_MVC_03_Menu2OrderReceptionPrompt) {
     remove_dir(dir);
 }
 
-// ── TC-MVC-04: 메뉴 3 진입 시 "준비 중" 출력 ────────────────────────────────
-TEST(TG_MVC, TC_MVC_04_Menu3StubOutput) {
+// ── TC-MVC-04: 메뉴 3 진입 시 주문 처리 화면 출력 (Phase 4 구현 완료) ────────
+// Phase 4 구현 후 메뉴 3은 주문 처리 화면을 표시한다.
+// 주문이 없으면 "처리 대기 중인 주문이 없습니다" 메시지가 출력된다.
+TEST(TG_MVC, TC_MVC_04_Menu3OrderProcessing) {
     auto dir = make_temp_dir("04");
     std::string output = run_app_with_input("3\n0\n", dir);
 
-    EXPECT_NE(output.find("준비 중"), std::string::npos) << output;
+    EXPECT_NE(output.find("처리 대기 중인 주문이 없습니다"), std::string::npos) << output;
 
     remove_dir(dir);
 }
@@ -144,17 +146,19 @@ TEST(TG_MVC, TC_MVC_09_InvalidInputError) {
 }
 
 // ── TC-MVC-10: 여러 메뉴를 순서대로 진입 후 종료 ────────────────────────────
-// Phase 3: 메뉴 1은 실제 구현(시료 관리), 메뉴 2는 실제 구현(주문 접수).
-// 메뉴 3은 stub("준비 중"). "준비 중"이 1회 이상 출력됨을 확인한다.
+// Phase 4: 메뉴 1(시료 관리), 메뉴 3(주문 처리) 모두 실제 구현 완료.
+// 메뉴 1 진입 후 돌아가기, 메뉴 3 진입 후 빈 목록 안내 확인 후 종료.
 TEST(TG_MVC, TC_MVC_10_MultipleMenusRun) {
     auto dir = make_temp_dir("10");
-    // menu 1 (sub 0: back) → menu 2 (EOF in order_reception) → menu 3 (준비 중) → 0 exit
-    // After menu 2 with EOF, run() also ends via EOF, so adjust: send explicit 3 and 0
+    // menu 1 (sub 0: back) → menu 3 (empty list) → 0 exit
     std::string output = run_app_with_input("1\n0\n3\n0\n", dir);
 
-    // menu 3 is still stub
-    EXPECT_NE(output.find("준비 중"), std::string::npos)
-        << "메뉴 3은 아직 stub이므로 '준비 중' 출력 필요\n" << output;
+    // menu 1 서브 메뉴 진입 확인
+    EXPECT_NE(output.find("시료 관리"), std::string::npos)
+        << "메뉴 1 시료 관리 출력 필요\n" << output;
+    // menu 3 주문 처리 진입 확인 (빈 목록)
+    EXPECT_NE(output.find("처리 대기 중인 주문이 없습니다"), std::string::npos)
+        << "메뉴 3 빈 목록 안내 메시지 출력 필요\n" << output;
 
     remove_dir(dir);
 }
