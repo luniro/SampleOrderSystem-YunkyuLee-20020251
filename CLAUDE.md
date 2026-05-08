@@ -13,8 +13,9 @@ C++17, CMake 기반. 빌드 환경은 `BUILD.md` 참조.
 
 ## 모듈 구성
 
+모듈별 역할·호출 관계는 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) 참조.
+
 ### `lib/json/` → CMake 타겟: `json_lib`
-자체 구현 JSON 파싱·직렬화 라이브러리.  
 `lib/json/include/json/json.hpp`로 포함. 다른 모든 모듈의 전이 의존성.
 
 ### `lib/persistence/` → CMake 타겟: `persistence`
@@ -22,28 +23,15 @@ JSON 파일 기반 CRUD (`DataStore`). `json_lib`에 PUBLIC 링크.
 `data_store.hpp`로 포함.
 
 ### `src/mvc/` → CMake 타겟: `mvc` (static library)
-MVC 패턴의 콘솔 할 일 관리 데모 모듈.  
-외부 의존성 없음(STL only). `#include "mvc/App.hpp"` → `mvc::App().run()` 호출.
+메인 애플리케이션 셸. 외부 의존성 없음(STL only).  
+`#include "mvc/App.hpp"` → `mvc::App().run()` 호출.
 
 ### `src/dummy_generator/` → CMake 타겟: `dummy_generator` (static library)
-`samples.json` / `orders.json` / `productions.json` 더미 데이터를 생성.  
 `persistence`에 PRIVATE 링크. `#include "dummy_generator/dummy_generator.hpp"`.
 
 ### `src/monitor/` → CMake 타겟: `monitor_lib` (static library)
-DataStore 위에서 동작하는 콘솔 조회 어댑터(읽기 전용).  
 도메인 타입: `Sample`, `Order`, `Production`.  
 `persistence`에 PUBLIC 링크. `#include "ui/app.hpp"` → `App({...}).run()`.
-
----
-
-## 의존 그래프
-
-```
-SampleOrderSystem (exe)
- ├── mvc              (STL only)
- ├── dummy_generator  → persistence → json_lib
- └── monitor_lib      → persistence → json_lib
-```
 
 ---
 
