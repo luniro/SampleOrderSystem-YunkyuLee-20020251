@@ -93,12 +93,13 @@ TEST(TG_MVC, TC_MVC_04_Menu3OrderProcessing) {
     remove_dir(dir);
 }
 
-// ── TC-MVC-05: 메뉴 4 진입 시 "준비 중" 출력 ────────────────────────────────
-TEST(TG_MVC, TC_MVC_05_Menu4StubOutput) {
+// ── TC-MVC-05: 메뉴 4 진입 시 모니터링 서브 메뉴 출력 (Phase 5 구현 완료) ────
+TEST(TG_MVC, TC_MVC_05_Menu4MonitoringSubMenu) {
     auto dir = make_temp_dir("05");
-    std::string output = run_app_with_input("4\n0\n", dir);
+    // 메뉴 4 진입 → 서브 메뉴 0(돌아가기) → 메인 0(종료)
+    std::string output = run_app_with_input("4\n0\n0\n", dir);
 
-    EXPECT_NE(output.find("준비 중"), std::string::npos) << output;
+    EXPECT_NE(output.find("모니터링"), std::string::npos) << output;
 
     remove_dir(dir);
 }

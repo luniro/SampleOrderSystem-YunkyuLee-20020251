@@ -248,3 +248,29 @@ else()
 endif()
 
 gtest_discover_tests(test_order_processing)
+
+# ── Phase 5: Monitoring tests ─────────────────────────────────────────────────
+add_executable(test_monitoring
+    mvc/test_monitoring.cpp
+)
+
+target_include_directories(test_monitoring PRIVATE
+    ${CMAKE_SOURCE_DIR}/lib
+    ${CMAKE_SOURCE_DIR}/lib/persistence
+    ${CMAKE_SOURCE_DIR}/src
+)
+
+target_link_libraries(test_monitoring PRIVATE
+    mvc
+    monitor_lib
+    persistence
+    GTest::gtest_main
+)
+
+if(MSVC)
+    target_compile_options(test_monitoring PRIVATE /W4 /utf-8)
+else()
+    target_compile_options(test_monitoring PRIVATE -Wall -Wextra)
+endif()
+
+gtest_discover_tests(test_monitoring)

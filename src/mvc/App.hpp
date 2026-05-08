@@ -53,6 +53,10 @@ private:
     void order_approve(const Order& order);
     void order_reject(const Order& order);
 
+    // 모니터링 서브 메서드
+    void monitoring_order_count();   // FR-M-01~02
+    void monitoring_stock_level();   // FR-M-03~05
+
     // 출력 헬퍼 (static)
     static void print_sample_detail(const Sample& s);
     static void print_sample_table(const std::vector<Sample>& samples);

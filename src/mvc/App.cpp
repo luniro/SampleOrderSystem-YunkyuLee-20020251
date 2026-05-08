@@ -682,7 +682,78 @@ void App::order_reject(const Order& order) {
 }
 
 void App::menu_monitoring() {
-    std::cout << "준비 중\n";
+    bool loop = true;
+    while (loop) {
+        std::cout << "\n[ 4. 모니터링 ]\n"
+                  << " 1. 주문량 확인\n"
+                  << " 2. 재고량 확인\n"
+                  << " 0. 돌아가기\n";
+        int choice = InputUtil::read_int("> ", 0, 2);
+        switch (choice) {
+            case 1: monitoring_order_count(); break;
+            case 2: monitoring_stock_level(); break;
+            case 0: loop = false;             break;
+            default: break;
+        }
+    }
+}
+
+void App::monitoring_order_count() {
+    order_repo_.refresh();
+    auto all_orders = order_repo_.find_all();
+
+    int cnt_reserved = 0, cnt_producing = 0, cnt_confirmed = 0, cnt_released = 0;
+    for (const auto& o : all_orders) {
+        switch (o.order_status) {
+            case Order::STATUS_RESERVED:  ++cnt_reserved;  break;
+            case Order::STATUS_PRODUCING: ++cnt_producing; break;
+            case Order::STATUS_CONFIRMED: ++cnt_confirmed; break;
+            case Order::STATUS_RELEASED:  ++cnt_released;  break;
+            default: break;
+        }
+    }
+
+    std::cout << "\n[ 주문량 현황 ]\n"
+              << "  Reserved  : " << cnt_reserved  << " 건\n"
+              << "  Producing : " << cnt_producing << " 건\n"
+              << "  Confirmed : " << cnt_confirmed << " 건\n"
+              << "  Released  : " << cnt_released  << " 건\n";
+}
+
+void App::monitoring_stock_level() {
+    sample_repo_.refresh();
+    order_repo_.refresh();
+    auto samples    = sample_repo_.find_all();
+    auto all_orders = order_repo_.find_all();
+
+    if (samples.empty()) {
+        std::cout << "등록된 시료가 없습니다.\n";
+        return;
+    }
+
+    TablePrinter tp({"시료명", "현재재고(ea)", "재고 상태"});
+    for (const auto& s : samples) {
+        bool has_producing = false;
+        int64_t reserved_sum = 0, confirmed_sum = 0;
+        for (const auto& o : all_orders) {
+            if (o.sample_id != s.sample_id) continue;
+            if (o.order_status == Order::STATUS_PRODUCING) has_producing = true;
+            if (o.order_status == Order::STATUS_RESERVED)  reserved_sum  += o.order_quantity;
+            if (o.order_status == Order::STATUS_CONFIRMED) confirmed_sum += o.order_quantity;
+        }
+
+        std::string status;
+        if (s.current_stock == 0) {
+            status = "고갈";
+        } else if (!has_producing && s.current_stock >= reserved_sum + confirmed_sum) {
+            status = "여유";
+        } else {
+            status = "부족";
+        }
+
+        tp.add_row({s.sample_name, std::to_string(s.current_stock), status});
+    }
+    tp.print_paged();
 }
 
 void App::menu_release_processing() {

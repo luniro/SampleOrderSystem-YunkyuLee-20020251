@@ -195,7 +195,7 @@ Phase 0-1은 `DataStore`(lib/persistence)의 null 포함 신규 필드(`approved
 | TC-MVC-02 | 메뉴 1 진입 시 "준비 중" 출력 | 임시 디렉터리 | 입력: "1\n0\n" (메뉴1 후 종료) | 출력에 "준비 중" 포함 | 정상 | |
 | TC-MVC-03 | 메뉴 2 진입 시 시료 ID 프롬프트 출력 (Phase 3 구현 완료) | 임시 디렉터리 | 입력: "2\n" (메뉴2 진입 후 EOF) | 출력에 "시료 ID" 포함 (order_reception 프롬프트) | 정상 | |
 | TC-MVC-04 | 메뉴 3 진입 시 "준비 중" 출력 | 임시 디렉터리 | 입력: "3\n0\n" (메뉴3 후 종료) | 출력에 "준비 중" 포함 | 정상 | |
-| TC-MVC-05 | 메뉴 4 진입 시 "준비 중" 출력 | 임시 디렉터리 | 입력: "4\n0\n" (메뉴4 후 종료) | 출력에 "준비 중" 포함 | 정상 | |
+| TC-MVC-05 | 메뉴 4 진입 시 모니터링 서브 메뉴 출력 (Phase 5 구현 완료) | 임시 디렉터리 | 입력: "4\n0\n0\n" (메뉴4 서브0 → 종료) | 출력에 "모니터링" 포함 | 정상 | PASS |
 | TC-MVC-06 | 메뉴 5 진입 시 "준비 중" 출력 | 임시 디렉터리 | 입력: "5\n0\n" (메뉴5 후 종료) | 출력에 "준비 중" 포함 | 정상 | |
 | TC-MVC-07 | 메뉴 6 진입 시 "준비 중" 출력 | 임시 디렉터리 | 입력: "6\n0\n" (메뉴6 후 종료) | 출력에 "준비 중" 포함 | 정상 | |
 | TC-MVC-08 | 입력 "0"으로 프로그램 정상 종료 | 임시 디렉터리 | 입력: "0\n" | run() 정상 반환. 예외 미발생 | 정상 | |
@@ -406,6 +406,32 @@ Phase 0-1은 `DataStore`(lib/persistence)의 null 포함 신규 필드(`approved
 
 ---
 
+### TG-MN: 모니터링 — Phase 5 (메뉴 4: 주문량 확인·재고량 확인) 검증
+
+#### 사전 조건 공통 사항
+
+- `mvc::App`을 `AppConfig{data_dir = <임시 디렉터리>}`로 초기화한다.
+- 각 TC는 별도의 임시 디렉터리를 사용하여 독립적인 초기 상태를 보장한다.
+- `std::cin` / `std::cout`을 `std::istringstream` / `std::ostringstream`으로 리디렉션하여 `App::run()`을 구동한다.
+- 시료·주문 픽스처는 `DataStore`를 통해 직접 삽입하거나 메뉴 입력 시퀀스로 생성한다.
+
+---
+
+| TC | 설명 | 사전 조건 | 입력 시퀀스 | 기대 출력 | 분류 | 판정 |
+|----|------|----------|------------|----------|------|------|
+| TC-MN-01 | 주문 없을 때 상태별 건수 모두 0 출력 | 빈 DB | 메인4 → 서브1(주문량 확인) → 0 → 0 | "Reserved  : 0 건", "Producing : 0 건", "Confirmed : 0 건", "Released  : 0 건" 모두 포함 | 경계 | PASS |
+| TC-MN-02 | Reserved 2건, Producing 1건, Confirmed 1건, Released 1건, Rejected 1건 → Rejected 제외하고 각 건수 정확히 출력 | 시료 1건 + 각 상태별 주문 직접 삽입 | 메인4 → 서브1 → 0 → 0 | "Reserved  : 2 건", "Producing : 1 건", "Confirmed : 1 건", "Released  : 1 건" 포함. "Rejected  :" 미포함 | 정상 | PASS |
+| TC-MN-03 | 시료 없을 때 "등록된 시료가 없습니다." 출력 | 빈 DB | 메인4 → 서브2(재고량 확인) → 0 → 0 | "등록된 시료가 없습니다" 포함 | 경계 | PASS |
+| TC-MN-04 | current_stock=0 → 재고 상태 "고갈" | 시료(재고=0) 직접 삽입 | 메인4 → 서브2 → 0 → 0 | 출력에 "고갈" 포함 | 정상 | PASS |
+| TC-MN-05 | current_stock>0, Producing 없음, stock >= Reserved합+Confirmed합 → "여유" | 시료(재고=100) + Reserved(30) + Confirmed(20) | 메인4 → 서브2 → 0 → 0 | 출력에 "여유" 포함 | 정상 | PASS |
+| TC-MN-06 | current_stock>0, Producing 있음 → "부족" | 시료(재고=100) + Producing(50) | 메인4 → 서브2 → 0 → 0 | 출력에 "부족" 포함 | 정상 | PASS |
+| TC-MN-07 | current_stock>0, Producing 없음, stock < Reserved합+Confirmed합 → "부족" | 시료(재고=40) + Reserved(30) + Confirmed(20) | 메인4 → 서브2 → 0 → 0 | 출력에 "부족" 포함 | 정상 | PASS |
+| TC-MN-08 | current_stock=0이면서 Producing도 있는 경우 → 우선순위 "고갈" | 시료(재고=0) + Producing(30) + Reserved(10) | 메인4 → 서브2 → 0 → 0 | 출력에 "고갈" 포함 | 경계 | PASS |
+| TC-MN-09 | 여러 시료 혼재 시 시료별 독립 판정 확인 | 시료A(재고=0, 고갈) + 시료B(재고=100+Reserved30+Confirmed10, 여유) + 시료C(재고=10+Producing20, 부족) | 메인4 → 서브2 → 0 → 0 | 출력에 "고갈", "여유", "부족" 모두 포함 | 정상 | PASS |
+| TC-MN-10 | menu_monitoring() 진입마다 파일 최신 데이터 반영(refresh 호출 여부) 확인 | 1차: 시료 등록 + 주문량 확인(0건). 2차: 주문 접수. 3차: 재진입 | 3차 실행: 메인4 → 서브1 → 0 → 0 | "Reserved  : 1 건" 포함 (파일 갱신 반영) | 정상 | PASS |
+
+---
+
 ## 합계
 
 | 그룹 | TC 수 |
@@ -421,4 +447,5 @@ Phase 0-1은 `DataStore`(lib/persistence)의 null 포함 신규 필드(`approved
 | TG-SM | 20 |
 | TG-OR | 8 |
 | TG-AP | 10 |
-| **합계** | **170** |
+| TG-MN | 10 |
+| **합계** | **180** |
