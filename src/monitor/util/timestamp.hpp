@@ -3,14 +3,15 @@
 #include <string>
 
 namespace Timestamp {
-    // "YYYY-MM-DD HH:MM:SS" -> UTC epoch seconds (int64_t)
+    // "YYYY-MM-DD HH:MM:SS (KST)" -> UTC epoch seconds (int64_t)
+    // " (KST)" suffix is optional; datetime portion is always interpreted as KST (UTC+9).
     // Returns 0 on parse failure.
     int64_t parse(const std::string& ts);
 
-    // UTC epoch seconds -> "YYYY-MM-DD HH:MM:SS"
+    // UTC epoch seconds -> "YYYY-MM-DD HH:MM:SS (KST)"
     std::string format(int64_t epoch);
 
-    // Current UTC time -> "YYYY-MM-DD HH:MM:SS"
+    // Current time as "YYYY-MM-DD HH:MM:SS (KST)"
     std::string now();
 
     // "HH:MM" duration string -> total minutes (int64_t)

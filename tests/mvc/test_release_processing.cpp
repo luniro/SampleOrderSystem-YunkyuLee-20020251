@@ -144,14 +144,17 @@ TEST(TG_RL, TC_RL_03_Release_ReleasedAtRecorded) {
 
     if (!released_at_val.is_null()) {
         const std::string& ts = released_at_val.as_string();
-        EXPECT_EQ(ts.size(), 19u)
-            << "released_at 길이가 19가 아님: " << ts;
-        if (ts.size() == 19) {
+        EXPECT_EQ(ts.size(), 25u)
+            << "released_at 길이가 25가 아님: " << ts;
+        if (ts.size() >= 19) {
             EXPECT_EQ(ts[4], '-');
             EXPECT_EQ(ts[7], '-');
             EXPECT_EQ(ts[10], ' ');
             EXPECT_EQ(ts[13], ':');
             EXPECT_EQ(ts[16], ':');
+        }
+        if (ts.size() == 25) {
+            EXPECT_EQ(ts.substr(19), " (KST)");
         }
     }
 

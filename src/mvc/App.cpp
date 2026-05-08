@@ -647,7 +647,7 @@ void App::order_approve(const Order& order) {
 
         std::string production_start_at;
         if (max_end_epoch == 0) {
-            production_start_at = approved_at;            // 큐 비어있음
+            production_start_at = Timestamp::now();       // 큐 비어있음 → 즉시 시작
         } else {
             production_start_at = Timestamp::format(max_end_epoch);  // 선행 완료 시각
         }

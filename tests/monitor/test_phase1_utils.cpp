@@ -6,13 +6,12 @@
 // TG-TS: Timestamp utilities
 // ============================================================
 
-// TC-TS-01: parse() — valid timestamp
+// TC-TS-01: parse() — valid timestamp (KST, round-trip)
 TEST(TG_TS, ParseValid) {
     int64_t ep = Timestamp::parse("2024-05-01 10:30:00");
-    // 2024-05-01 10:30:00 UTC
-    // Verify by round-trip
+    // 2024-05-01 10:30:00 KST -> round-trip via format() -> same KST string + suffix
     std::string back = Timestamp::format(ep);
-    EXPECT_EQ(back, "2024-05-01 10:30:00");
+    EXPECT_EQ(back, "2024-05-01 10:30:00 (KST)");
 }
 
 // TC-TS-02: parse() — epoch zero / invalid string
@@ -21,26 +20,27 @@ TEST(TG_TS, ParseInvalid) {
     EXPECT_EQ(Timestamp::parse("not-a-date"), 0);
 }
 
-// TC-TS-03: format() — epoch 0 -> 1970-01-01 00:00:00
+// TC-TS-03: format() — epoch 0 -> 1970-01-01 09:00:00 (KST)
 TEST(TG_TS, FormatEpochZero) {
-    EXPECT_EQ(Timestamp::format(0), "1970-01-01 00:00:00");
+    EXPECT_EQ(Timestamp::format(0), "1970-01-01 09:00:00 (KST)");
 }
 
-// TC-TS-04: parse/format round-trip
+// TC-TS-04: parse/format round-trip (KST)
 TEST(TG_TS, ParseFormatRoundTrip) {
     const std::string ts = "2024-12-31 23:59:59";
-    EXPECT_EQ(Timestamp::format(Timestamp::parse(ts)), ts);
+    EXPECT_EQ(Timestamp::format(Timestamp::parse(ts)), ts + " (KST)");
 }
 
-// TC-TS-05: now() — non-empty, correct format length
+// TC-TS-05: now() — "YYYY-MM-DD HH:MM:SS (KST)" format (25 chars)
 TEST(TG_TS, NowFormat) {
     std::string n = Timestamp::now();
-    EXPECT_EQ(n.size(), 19u);
+    EXPECT_EQ(n.size(), 25u);
     EXPECT_EQ(n[4],  '-');
     EXPECT_EQ(n[7],  '-');
     EXPECT_EQ(n[10], ' ');
     EXPECT_EQ(n[13], ':');
     EXPECT_EQ(n[16], ':');
+    EXPECT_EQ(n.substr(19), " (KST)");
 }
 
 // TC-TS-06: parse_duration_minutes() — "03:30" -> 210
@@ -64,18 +64,18 @@ TEST(TG_TS, ParseDurationMinutes_Invalid) {
     EXPECT_EQ(Timestamp::parse_duration_minutes("abc"), 0);
 }
 
-// TC-TS-10: completion_epoch() — start + duration
+// TC-TS-10: completion_epoch() — start + duration (KST)
 TEST(TG_TS, CompletionEpoch_Normal) {
-    // "2024-05-01 10:30:00" + "03:30" = "2024-05-01 14:00:00"
+    // "2024-05-01 10:30:00 KST" + "03:30" = "2024-05-01 14:00:00 KST"
     int64_t ep = Timestamp::completion_epoch("2024-05-01 10:30:00", "03:30");
-    EXPECT_EQ(Timestamp::format(ep), "2024-05-01 14:00:00");
+    EXPECT_EQ(Timestamp::format(ep), "2024-05-01 14:00:00 (KST)");
 }
 
-// TC-TS-11: completion_epoch() — across midnight
+// TC-TS-11: completion_epoch() — across midnight (KST)
 TEST(TG_TS, CompletionEpoch_AcrossMidnight) {
-    // "2024-05-01 22:00:00" + "03:00" = "2024-05-02 01:00:00"
+    // "2024-05-01 22:00:00 KST" + "03:00" = "2024-05-02 01:00:00 KST"
     int64_t ep = Timestamp::completion_epoch("2024-05-01 22:00:00", "03:00");
-    EXPECT_EQ(Timestamp::format(ep), "2024-05-02 01:00:00");
+    EXPECT_EQ(Timestamp::format(ep), "2024-05-02 01:00:00 (KST)");
 }
 
 // TC-TS-12: format_completion() — same day -> "HH:MM"

@@ -266,17 +266,18 @@ TEST(TG_AP, TC_AP_07_ApprovedAt_RecordedOnApproval) {
     auto records = ds.read_all();
     ASSERT_EQ(static_cast<int>(records.size()), 1);
 
-    // approved_at이 null이 아니고 "YYYY-MM-DD HH:MM:SS" 형식이어야 함
+    // approved_at이 null이 아니고 "YYYY-MM-DD HH:MM:SS (KST)" 형식이어야 함
     ASSERT_FALSE(records[0]["approved_at"].is_null())
         << "승인 후 approved_at이 null이 아니어야 함";
     std::string at = records[0]["approved_at"].as_string();
-    EXPECT_EQ(at.size(), std::size_t(19))
-        << "approved_at 형식이 YYYY-MM-DD HH:MM:SS이어야 함. 값: " << at;
+    EXPECT_EQ(at.size(), std::size_t(25))
+        << "approved_at 형식이 YYYY-MM-DD HH:MM:SS (KST)이어야 함. 값: " << at;
     EXPECT_EQ(at[4], '-');
     EXPECT_EQ(at[7], '-');
     EXPECT_EQ(at[10], ' ');
     EXPECT_EQ(at[13], ':');
     EXPECT_EQ(at[16], ':');
+    EXPECT_EQ(at.substr(19), " (KST)");
 
     remove_dir(dir);
 }

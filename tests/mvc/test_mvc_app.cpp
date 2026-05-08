@@ -104,22 +104,22 @@ TEST(TG_MVC, TC_MVC_05_Menu4MonitoringSubMenu) {
     remove_dir(dir);
 }
 
-// ── TC-MVC-06: 메뉴 5 진입 시 "준비 중" 출력 ────────────────────────────────
-TEST(TG_MVC, TC_MVC_06_Menu5StubOutput) {
+// ── TC-MVC-06: 메뉴 5 진입 시 출고 처리 화면 출력 (Phase 6 구현 완료) ──────────
+TEST(TG_MVC, TC_MVC_06_Menu5ReleaseProcessing) {
     auto dir = make_temp_dir("06");
     std::string output = run_app_with_input("5\n0\n", dir);
 
-    EXPECT_NE(output.find("준비 중"), std::string::npos) << output;
+    EXPECT_NE(output.find("출고 가능한 주문이 없습니다"), std::string::npos) << output;
 
     remove_dir(dir);
 }
 
-// ── TC-MVC-07: 메뉴 6 진입 시 "준비 중" 출력 ────────────────────────────────
-TEST(TG_MVC, TC_MVC_07_Menu6StubOutput) {
+// ── TC-MVC-07: 메뉴 6 진입 시 생산 라인 화면 출력 (Phase 5/7 구현 완료) ────────
+TEST(TG_MVC, TC_MVC_07_Menu6ProductionLine) {
     auto dir = make_temp_dir("07");
     std::string output = run_app_with_input("6\n0\n", dir);
 
-    EXPECT_NE(output.find("준비 중"), std::string::npos) << output;
+    EXPECT_NE(output.find("생산 현황"), std::string::npos) << output;
 
     remove_dir(dir);
 }

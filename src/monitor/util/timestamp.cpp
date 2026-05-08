@@ -15,13 +15,20 @@
 namespace Timestamp {
 
 // ---------------------------------------------------------------------------
-// parse: "YYYY-MM-DD HH:MM:SS" -> UTC epoch seconds
+// parse: "YYYY-MM-DD HH:MM:SS (KST)" -> UTC epoch seconds
+//        " (KST)" suffix is optional for backward compatibility.
+//        The datetime portion is always interpreted as KST (UTC+9).
 // ---------------------------------------------------------------------------
 int64_t parse(const std::string& ts) {
-    if (ts.size() < 19) return 0;
+    // Strip optional " (KST)" suffix
+    std::string s = ts;
+    auto kst_pos = s.find(" (KST)");
+    if (kst_pos != std::string::npos) s.erase(kst_pos);
+
+    if (s.size() < 19) return 0;
 
     int year = 0, mon = 0, day = 0, hour = 0, min = 0, sec = 0;
-    int n = std::sscanf(ts.c_str(), "%d-%d-%d %d:%d:%d",
+    int n = std::sscanf(s.c_str(), "%d-%d-%d %d:%d:%d",
                         &year, &mon, &day, &hour, &min, &sec);
     if (n != 6) return 0;
 
@@ -34,34 +41,34 @@ int64_t parse(const std::string& ts) {
     t.tm_sec  = sec;
     t.tm_isdst = 0;
 
-    // timegm equivalent: use _mkgmtime on Windows, timegm on POSIX
+    // _mkgmtime / timegm treats tm as UTC; subtract KST offset to get true UTC epoch
 #ifdef _WIN32
     time_t epoch = _mkgmtime(&t);
 #else
     time_t epoch = timegm(&t);
 #endif
     if (epoch == static_cast<time_t>(-1)) return 0;
-    return static_cast<int64_t>(epoch);
+    return static_cast<int64_t>(epoch) - 9 * 3600;
 }
 
 // ---------------------------------------------------------------------------
-// format: UTC epoch seconds -> "YYYY-MM-DD HH:MM:SS"
+// format: UTC epoch seconds -> "YYYY-MM-DD HH:MM:SS (KST)"
 // ---------------------------------------------------------------------------
 std::string format(int64_t epoch) {
-    time_t t = static_cast<time_t>(epoch);
+    time_t t = static_cast<time_t>(epoch + 9 * 3600);  // shift to KST
     struct tm tm_val{};
 
 #ifdef _WIN32
-    if (gmtime_s(&tm_val, &t) != 0) return "1970-01-01 00:00:00";
+    if (gmtime_s(&tm_val, &t) != 0) return "1970-01-01 09:00:00 (KST)";
 #else
-    if (gmtime_r(&t, &tm_val) == nullptr) return "1970-01-01 00:00:00";
+    if (gmtime_r(&t, &tm_val) == nullptr) return "1970-01-01 09:00:00 (KST)";
 #endif
 
     char buf[20];
     std::snprintf(buf, sizeof(buf), "%04d-%02d-%02d %02d:%02d:%02d",
                   tm_val.tm_year + 1900, tm_val.tm_mon + 1, tm_val.tm_mday,
                   tm_val.tm_hour, tm_val.tm_min, tm_val.tm_sec);
-    return std::string(buf);
+    return std::string(buf) + " (KST)";
 }
 
 // ---------------------------------------------------------------------------
@@ -94,11 +101,11 @@ int64_t completion_epoch(const std::string& production_start_at,
 }
 
 // ---------------------------------------------------------------------------
-// format_completion: epoch -> "HH:MM" or "HH:MM (+N day(s))"
+// format_completion: epoch -> "HH:MM" or "HH:MM (+N day(s))" in KST
 // ---------------------------------------------------------------------------
 std::string format_completion(int64_t completion_epoch_val, int64_t now_epoch) {
-    // Extract HH:MM from completion epoch
-    time_t t = static_cast<time_t>(completion_epoch_val);
+    // Extract HH:MM in KST
+    time_t t = static_cast<time_t>(completion_epoch_val + 9 * 3600);
     struct tm tm_c{};
 #ifdef _WIN32
     if (gmtime_s(&tm_c, &t) != 0) return "00:00";
@@ -110,9 +117,9 @@ std::string format_completion(int64_t completion_epoch_val, int64_t now_epoch) {
     std::snprintf(buf, sizeof(buf), "%02d:%02d", tm_c.tm_hour, tm_c.tm_min);
     std::string hhmm(buf);
 
-    // Day difference
-    int64_t completion_day = completion_epoch_val / 86400;
-    int64_t now_day        = now_epoch / 86400;
+    // Day difference in KST (midnight boundary at UTC+9)
+    int64_t completion_day = (completion_epoch_val + 9 * 3600) / 86400;
+    int64_t now_day        = (now_epoch        + 9 * 3600) / 86400;
     int64_t N = completion_day - now_day;
 
     if (N <= 0) {
