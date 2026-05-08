@@ -204,6 +204,119 @@ Phase 0-1은 `DataStore`(lib/persistence)의 null 포함 신규 필드(`approved
 
 ---
 
+### TG-TS: Timestamp — Phase 1 타임스탬프 유틸리티 검증
+
+#### 사전 조건 공통 사항
+
+- `Timestamp` 네임스페이스 함수를 직접 호출한다.
+- 모든 시각은 UTC 기준이다.
+
+---
+
+| TC | 설명 | 사전 조건 | 입력 시퀀스 | 기대 출력 | 분류 | 판정 |
+|----|------|----------|------------|----------|------|------|
+| TC-TS-01 | parse() — 유효한 타임스탬프 파싱 후 format()으로 역변환 일치 | 없음 | `parse("2024-05-01 10:30:00")` → epoch ep 획득, `format(ep)` 호출 | `format(ep) == "2024-05-01 10:30:00"` | 정상 | PASS |
+| TC-TS-02 | parse() — 빈 문자열·잘못된 형식 → 0 반환 | 없음 | `parse("")`, `parse("not-a-date")` 각각 호출 | 두 결과 모두 == 0 | 이상 | PASS |
+| TC-TS-03 | format() — epoch 0 → "1970-01-01 00:00:00" | 없음 | `format(0)` 호출 | `"1970-01-01 00:00:00"` | 경계 | PASS |
+| TC-TS-04 | parse/format 왕복 일치 (연말 경계) | 없음 | `parse("2024-12-31 23:59:59")` → ep, `format(ep)` 호출 | `"2024-12-31 23:59:59"` | 경계 | PASS |
+| TC-TS-05 | now() — 반환 문자열 형식 검증 | 없음 | `now()` 호출 | 크기==19, `[4]`, `[7]`=='-', `[10]`==' ', `[13]`, `[16]`==':' | 정상 | PASS |
+| TC-TS-06 | parse_duration_minutes() — "03:30" → 210 | 없음 | `parse_duration_minutes("03:30")` 호출 | `210` | 정상 | PASS |
+| TC-TS-07 | parse_duration_minutes() — "00:00" → 0 | 없음 | `parse_duration_minutes("00:00")` 호출 | `0` | 경계 | PASS |
+| TC-TS-08 | parse_duration_minutes() — "06:00" → 360 | 없음 | `parse_duration_minutes("06:00")` 호출 | `360` | 정상 | PASS |
+| TC-TS-09 | parse_duration_minutes() — 빈 문자열·잘못된 형식 → 0 | 없음 | `parse_duration_minutes("")`, `parse_duration_minutes("abc")` 호출 | 두 결과 모두 == 0 | 이상 | PASS |
+| TC-TS-10 | completion_epoch() — 시작 + duration → 올바른 완료 epoch | 없음 | `completion_epoch("2024-05-01 10:30:00", "03:30")` 호출 | `format(result) == "2024-05-01 14:00:00"` | 정상 | PASS |
+| TC-TS-11 | completion_epoch() — 자정 넘김 | 없음 | `completion_epoch("2024-05-01 22:00:00", "03:00")` 호출 | `format(result) == "2024-05-02 01:00:00"` | 경계 | PASS |
+| TC-TS-12 | format_completion() — 당일(N==0) → "HH:MM" | 없음 | comp=`parse("2024-05-01 14:00:00")`, now=`parse("2024-05-01 10:00:00")` | `"14:00"` | 정상 | PASS |
+| TC-TS-13 | format_completion() — 익일(N==1) → "HH:MM (+1 day)" | 없음 | comp=`parse("2024-05-02 02:00:00")`, now=`parse("2024-05-01 23:00:00")` | `"02:00 (+1 day)"` | 정상 | PASS |
+| TC-TS-14 | format_completion() — 이틀 뒤(N==2) → "HH:MM (+2 days)" | 없음 | comp=`parse("2024-05-03 06:00:00")`, now=`parse("2024-05-01 10:00:00")` | `"06:00 (+2 days)"` | 정상 | PASS |
+| TC-TS-15 | format_completion() — 이미 경과(N<=0) → "HH:MM" | 없음 | comp=`parse("2024-05-01 08:00:00")`, now=`parse("2024-05-01 10:00:00")` | `"08:00"` | 경계 | PASS |
+| TC-TS-16 | calc_progress() — 진행 중 50% | 없음 | start="2024-05-01 00:00:00", now=start+30분, duration="01:00" | ≈ 50.0 | 정상 | PASS |
+| TC-TS-17 | calc_progress() — 시작 전 → 0.0 (clamp) | 없음 | start="2024-05-01 12:00:00", now=start-60초, duration="01:00" | ≈ 0.0 | 경계 | PASS |
+| TC-TS-18 | calc_progress() — 완료 후 → 100.0 (clamp) | 없음 | start="2024-05-01 00:00:00", now=start+2시간, duration="01:00" | ≈ 100.0 | 경계 | PASS |
+| TC-TS-19 | calc_progress() — 분모 0(duration="00:00") → 100.0 | 없음 | duration="00:00", 임의 now | `100.0` | 경계 | PASS |
+
+---
+
+### TG-PC: ProductionCalc — Phase 1 생산 계산 유틸리티 검증
+
+#### 사전 조건 공통 사항
+
+- `ProductionCalc` 네임스페이스 함수를 직접 호출한다.
+
+---
+
+| TC | 설명 | 사전 조건 | 입력 시퀀스 | 기대 출력 | 분류 | 판정 |
+|----|------|----------|------------|----------|------|------|
+| TC-PC-01 | actual_production() — shortage=0 → 0 | 없음 | `actual_production(0, 0.87)` 호출 | `0` | 경계 | PASS |
+| TC-PC-02 | actual_production() — 일반 케이스: ceil(20/(0.87×0.9))=26 | 없음 | `actual_production(20, 0.87)` 호출 | `26` | 정상 | PASS |
+| TC-PC-03 | actual_production() — 정확한 나누기: ceil(90/(1.0×0.9))=100 | 없음 | `actual_production(90, 1.0)` 호출 | `100` | 정상 | PASS |
+| TC-PC-04 | actual_production() — shortage=1, 낮은 수율: ceil(1/0.45)=3 | 없음 | `actual_production(1, 0.5)` 호출 | `3` | 정상 | PASS |
+| TC-PC-05 | estimated_minutes() — 일반 케이스: 23×4.5×60=6210 | 없음 | `estimated_minutes(23, 4.5)` 호출 | ≈ 6210.0 | 정상 | PASS |
+| TC-PC-06 | estimated_minutes() — actual_production=0 → 0 | 없음 | `estimated_minutes(0, 4.5)` 호출 | ≈ 0.0 | 경계 | PASS |
+| TC-PC-07 | format_duration() — 210.0 → "03:30" | 없음 | `format_duration(210.0)` 호출 | `"03:30"` | 정상 | PASS |
+| TC-PC-08 | format_duration() — 210.4 → "03:30" (내림 반올림) | 없음 | `format_duration(210.4)` 호출 | `"03:30"` | 정상 | PASS |
+| TC-PC-09 | format_duration() — 210.5 → "03:31" (반올림) | 없음 | `format_duration(210.5)` 호출 | `"03:31"` | 경계 | PASS |
+| TC-PC-10 | format_duration() — 0.0 → "00:00" | 없음 | `format_duration(0.0)` 호출 | `"00:00"` | 경계 | PASS |
+| TC-PC-11 | format_duration() — 60.0 → "01:00" | 없음 | `format_duration(60.0)` 호출 | `"01:00"` | 정상 | PASS |
+| TC-PC-12 | format_duration() — 360.0 → "06:00" | 없음 | `format_duration(360.0)` 호출 | `"06:00"` | 정상 | PASS |
+| TC-PC-13 | format_duration() — 대형 값 6210.0 → "103:30" | 없음 | `format_duration(6210.0)` 호출 | `"103:30"` | 경계 | PASS |
+
+---
+
+### TG-IU: InputUtil — Phase 1 입력 유효성 검사 유틸리티 검증
+
+#### 사전 조건 공통 사항
+
+- `std::cin` / `std::cout`을 `std::istringstream` / `std::ostringstream`으로 리디렉션하여 테스트한다.
+- 각 TC는 테스트 종료 후 스트림을 원래대로 복원한다.
+
+---
+
+| TC | 설명 | 사전 조건 | 입력 시퀀스 | 기대 출력 | 분류 | 판정 |
+|----|------|----------|------------|----------|------|------|
+| TC-IU-01 | read_int() — 유효 범위 내 정수 | cin="3\n" | `read_int("Enter: ", 1, 5)` 호출 | `3` | 정상 | PASS |
+| TC-IU-02 | read_int() — 최솟값 경계 | cin="1\n" | `read_int("Enter: ", 1, 5)` 호출 | `1` | 경계 | PASS |
+| TC-IU-03 | read_int() — 최댓값 경계 | cin="5\n" | `read_int("Enter: ", 1, 5)` 호출 | `5` | 경계 | PASS |
+| TC-IU-04 | read_int() — 범위 초과 후 유효 입력 | cin="0\n6\n3\n" | `read_int("Enter: ", 1, 5)` 호출 | 반환값 `3`, 출력에 "잘못된 입력" 포함 | 이상 | PASS |
+| TC-IU-05 | read_int() — 비정수 입력 후 유효 입력 | cin="abc\n2\n" | `read_int("Enter: ", 1, 5)` 호출 | 반환값 `2`, 출력에 "잘못된 입력" 포함 | 이상 | PASS |
+| TC-IU-06 | read_int() — 빈 줄 후 유효 입력 | cin="\n4\n" | `read_int("Enter: ", 1, 5)` 호출 | 반환값 `4` | 이상 | PASS |
+| TC-IU-07 | read_int() — EOF 즉시 min_val 반환 | cin="" (EOF) | `read_int("Enter: ", 1, 5)` 호출 | `1` (min_val) | 경계 | PASS |
+| TC-IU-08 | read_int() — 커스텀 오류 메시지 출력 | cin="99\n3\n" | `read_int("Enter: ", 1, 5, "custom error")` 호출 | 출력에 "custom error" 포함 | 정상 | PASS |
+| TC-IU-09 | read_int() — 실수 입력("3.5")은 비정수로 처리 | cin="3.5\n2\n" | `read_int("Enter: ", 1, 5)` 호출 | 반환값 `2`, 오류 메시지 출력 | 이상 | PASS |
+| TC-IU-10 | read_nonempty() — 유효 문자열 | cin="hello\n" | `read_nonempty("Enter: ")` 호출 | `"hello"` | 정상 | PASS |
+| TC-IU-11 | read_nonempty() — 빈 줄 후 유효 입력 | cin="\nhello\n" | `read_nonempty("Enter: ")` 호출 | `"hello"`, 출력에 "빈 값" 포함 | 이상 | PASS |
+| TC-IU-12 | read_nonempty() — 공백만인 줄 후 유효 입력 | cin="   \nworld\n" | `read_nonempty("Enter: ")` 호출 | `"world"`, 출력에 "빈 값" 포함 | 이상 | PASS |
+| TC-IU-13 | read_nonempty() — EOF 즉시 빈 문자열 반환 | cin="" (EOF) | `read_nonempty("Enter: ")` 호출 | `""` | 경계 | PASS |
+| TC-IU-14 | read_nonempty() — 앞뒤 공백 있는 입력 trim 없이 반환 | cin="  hello  \n" | `read_nonempty("Enter: ")` 호출 | `"  hello  "` (원본 유지) | 정상 | PASS |
+| TC-IU-15 | read_nonempty() — 커스텀 오류 메시지 출력 | cin="\nvalue\n" | `read_nonempty("Enter: ", "custom empty error")` 호출 | 출력에 "custom empty error" 포함 | 정상 | PASS |
+
+---
+
+### TG-TP: TablePrinter paging — Phase 1 페이지 탐색 검증
+
+#### 사전 조건 공통 사항
+
+- `std::cin` / `std::cout`을 리디렉션하여 테스트한다.
+- 테스트 환경에서 `Console::get_height()`는 fallback 24를 반환하므로 page_rows = 20이다.
+- 25행 테이블로 2페이지(20+5) 시나리오를 구성한다.
+
+---
+
+| TC | 설명 | 사전 조건 | 입력 시퀀스 | 기대 출력 | 분류 | 판정 |
+|----|------|----------|------------|----------|------|------|
+| TC-TP-01 | print_paged() — 0행 → 헤더만 출력, 프롬프트 없음 | 빈 TablePrinter | cin="0\n" | 출력에 "Col" 포함, "[n]" 없음 | 경계 | PASS |
+| TC-TP-02 | print_paged() — 전체 행 ≤ page_rows → 전체 출력, 프롬프트 없음 | 5행 TablePrinter | cin="" | 5행 모두 출력, "[n]" 없음 | 정상 | PASS |
+| TC-TP-03 | print_paged() — "0" 입력으로 첫 페이지에서 종료 | 25행 TablePrinter | cin="0\n" | 프롬프트 "(1/2)" 출력, row_0~row_19 표시, row_20 없음 | 정상 | PASS |
+| TC-TP-04 | print_paged() — "n"으로 다음 페이지 이동 | 25행 TablePrinter | cin="n\n0\n" | row_20~row_24 표시, "(2/2)" 출력 | 정상 | PASS |
+| TC-TP-05 | print_paged() — 빈 입력(Enter)은 "n"과 동일 | 25행 TablePrinter | cin="\n0\n" | row_20~row_24 표시 | 정상 | PASS |
+| TC-TP-06 | print_paged() — 첫 페이지에서 "p" 무시 | 25행 TablePrinter | cin="p\n0\n" | "(1/2)"가 2회 출력 (위치 이동 없음) | 경계 | PASS |
+| TC-TP-07 | print_paged() — 마지막 페이지에서 "n" 무시 | 25행 TablePrinter | cin="n\nn\n0\n" | "(2/2)"가 2회 출력 | 경계 | PASS |
+| TC-TP-08 | print_paged() — "n" 후 "p"로 첫 페이지 복귀 | 25행 TablePrinter | cin="n\np\n0\n" | "(1/2)" 첫 출력 → "(2/2)" → "(1/2)" 두 번째 출력 순서 | 정상 | PASS |
+| TC-TP-09 | print_paged() — EOF에서 루프 종료 | 25행 TablePrinter | cin="" (EOF) | 크래시·무한루프 없이 반환. "[n]" 출력 후 종료 | 경계 | PASS |
+| TC-TP-10 | print_paged() — 인식 불가 입력은 무시하고 동일 페이지 재출력 | 25행 TablePrinter | cin="x\n0\n" | "(1/2)"가 2회 출력 | 이상 | PASS |
+
+---
+
 ## 합계
 
 | 그룹 | TC 수 |
@@ -212,4 +325,8 @@ Phase 0-1은 `DataStore`(lib/persistence)의 null 포함 신규 필드(`approved
 | TG-DG | 20 |
 | TG-MT | 20 |
 | TG-MVC | 10 |
-| **합계** | **75** |
+| TG-TS | 19 |
+| TG-PC | 13 |
+| TG-IU | 15 |
+| TG-TP | 10 |
+| **합계** | **132** |

@@ -96,3 +96,77 @@ else()
 endif()
 
 gtest_discover_tests(test_mvc_app)
+
+# ── Phase 1: Timestamp + ProductionCalc utils tests ─────────────────────────
+add_executable(test_phase1_utils
+    monitor/test_phase1_utils.cpp
+)
+
+target_include_directories(test_phase1_utils PRIVATE
+    ${CMAKE_SOURCE_DIR}/lib
+    ${CMAKE_SOURCE_DIR}/lib/persistence
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/src/monitor
+)
+
+target_link_libraries(test_phase1_utils PRIVATE
+    monitor_lib
+    GTest::gtest_main
+)
+
+if(MSVC)
+    target_compile_options(test_phase1_utils PRIVATE /W4 /utf-8)
+else()
+    target_compile_options(test_phase1_utils PRIVATE -Wall -Wextra)
+endif()
+
+gtest_discover_tests(test_phase1_utils)
+
+# ── Phase 1: TablePrinter paging tests ──────────────────────────────────────
+add_executable(test_table_paging
+    monitor/test_table_paging.cpp
+)
+
+target_include_directories(test_table_paging PRIVATE
+    ${CMAKE_SOURCE_DIR}/lib
+    ${CMAKE_SOURCE_DIR}/lib/persistence
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/src/monitor
+)
+
+target_link_libraries(test_table_paging PRIVATE
+    monitor_lib
+    GTest::gtest_main
+)
+
+if(MSVC)
+    target_compile_options(test_table_paging PRIVATE /W4 /utf-8)
+else()
+    target_compile_options(test_table_paging PRIVATE -Wall -Wextra)
+endif()
+
+gtest_discover_tests(test_table_paging)
+
+# ── Phase 1: InputUtil tests ─────────────────────────────────────────────────
+add_executable(test_input_util
+    mvc/test_input_util.cpp
+)
+
+target_include_directories(test_input_util PRIVATE
+    ${CMAKE_SOURCE_DIR}/lib
+    ${CMAKE_SOURCE_DIR}/lib/persistence
+    ${CMAKE_SOURCE_DIR}/src
+)
+
+target_link_libraries(test_input_util PRIVATE
+    mvc
+    GTest::gtest_main
+)
+
+if(MSVC)
+    target_compile_options(test_input_util PRIVATE /W4 /utf-8)
+else()
+    target_compile_options(test_input_util PRIVATE -Wall -Wextra)
+endif()
+
+gtest_discover_tests(test_input_util)

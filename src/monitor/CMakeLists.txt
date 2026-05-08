@@ -4,7 +4,10 @@ add_library(monitor_lib STATIC
     repository/order_repository.cpp
     repository/production_repository.cpp
     ui/table_printer.cpp
+    ui/console.cpp
     ui/app.cpp
+    util/timestamp.cpp
+    util/production_calc.cpp
 )
 
 target_include_directories(monitor_lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

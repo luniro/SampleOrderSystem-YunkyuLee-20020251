@@ -1,5 +1,6 @@
 add_library(mvc STATIC
     App.cpp
+    input_util.cpp
 )
 
 # PUBLIC: 링크하는 쪽에서 #include "mvc/..." 형태로 접근 가능
