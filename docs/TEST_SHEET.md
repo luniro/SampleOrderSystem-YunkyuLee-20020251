@@ -107,9 +107,45 @@ Phase 0-1은 `DataStore`(lib/persistence)의 null 포함 신규 필드(`approved
 
 ---
 
+### TG-DG: DummyGenerator — Phase 0-2 신규 필드 생성 검증
+
+#### 사전 조건 공통 사항
+
+- `GeneratorConfig`를 기본값(sample_count=5, order_count=10, production_count=8)으로 초기화하되, `output_dir`은 임시 디렉터리로 설정한다.
+- 각 TC는 별도의 임시 디렉터리를 사용하거나 TC 시작 시 디렉터리를 삭제하여 초기 상태를 보장한다.
+- 시드 42 고정: 동일 설정이면 항상 동일한 출력이 생성된다.
+
+---
+
+| TC | 설명 | 사전 조건 | 입력 시퀀스 | 기대 출력 | 분류 | 판정 |
+|----|------|----------|------------|----------|------|------|
+| TC-DG-01 | Reserved(status=0) 주문의 approved_at이 null | 기본 config로 generate_dummy_data 실행 | 생성된 orders.json에서 order_status==0 레코드 조회 | 해당 레코드의 `approved_at.is_null() == true` | 정상 | PASS |
+| TC-DG-02 | Rejected(status=1) 주문의 approved_at이 null | 기본 config로 generate_dummy_data 실행 | 생성된 orders.json에서 order_status==1 레코드 조회 | 해당 레코드의 `approved_at.is_null() == true` | 정상 | PASS |
+| TC-DG-03 | Producing(status=2) 주문의 approved_at이 타임스탬프 | 기본 config로 generate_dummy_data 실행 | 생성된 orders.json에서 order_status==2 레코드 조회 | `approved_at.is_null() == false`, 값이 `"YYYY-MM-DD HH:MM:SS"` 형식 | 정상 | PASS |
+| TC-DG-04 | Confirmed(status=3) 주문의 approved_at이 타임스탬프 | 기본 config로 generate_dummy_data 실행 | 생성된 orders.json에서 order_status==3 레코드 조회 | `approved_at.is_null() == false`, 값이 `"YYYY-MM-DD HH:MM:SS"` 형식 | 정상 | PASS |
+| TC-DG-05 | Released(status=4) 주문의 approved_at이 타임스탬프 | 기본 config로 generate_dummy_data 실행 | 생성된 orders.json에서 order_status==4 레코드 조회 | `approved_at.is_null() == false`, 값이 `"YYYY-MM-DD HH:MM:SS"` 형식 | 정상 | PASS |
+| TC-DG-06 | 비-Released(status 0~3) 주문의 released_at이 null | 기본 config로 generate_dummy_data 실행 | 생성된 orders.json에서 order_status != 4 레코드 조회 | 해당 레코드의 `released_at.is_null() == true` | 정상 | PASS |
+| TC-DG-07 | Released(status=4) 주문의 released_at이 타임스탬프 | 기본 config로 generate_dummy_data 실행 | 생성된 orders.json에서 order_status==4 레코드 조회 | `released_at.is_null() == false`, 값이 `"YYYY-MM-DD HH:MM:SS"` 형식 | 정상 | PASS |
+| TC-DG-08 | order_status 값이 유효 범위 [0,4]에 속함 | 기본 config로 generate_dummy_data 실행 | 생성된 모든 orders 레코드의 order_status 확인 | 모든 레코드의 `order_status >= 0 && order_status <= 4` | 경계 | PASS |
+| TC-DG-09 | production_start_at이 존재하고 타임스탬프 형식 | 기본 config로 generate_dummy_data 실행 | 생성된 productions.json의 모든 레코드 확인 | 모든 레코드에 `production_start_at` 필드 존재, 값이 `"YYYY-MM-DD HH:MM:SS"` 형식, null 아님 | 정상 | PASS |
+| TC-DG-10 | production_start_at enqueue 연쇄 규칙 — 비단조 감소 없음 | 기본 config(production_count=8)로 generate_dummy_data 실행 | productions.json에서 i번째와 (i+1)번째 레코드의 production_start_at 비교 | `production_start_at[i+1] >= production_start_at[i]` (단조 비감소) | 정상 | PASS |
+| TC-DG-11 | 시드 42 재현성 — 동일 설정 2회 실행 결과 동일 | 임시 디렉터리에 generate_dummy_data 실행 후 파일 삭제 | 동일 config로 2회 실행, 각 orders.json 로드 후 비교 | 두 실행의 레코드 수·order_status·approved_at 값이 완전히 일치 | 정상 | PASS |
+| TC-DG-12 | 잘못된 config로 std::invalid_argument 예외 발생 | 임의 임시 디렉터리 | sample_count=0, order_count=-1, production_count=0 각각 시도 | 세 경우 모두 `std::invalid_argument` 발생 | 이상 | PASS |
+| TC-DG-13 | 생성된 order 수가 config.order_count와 일치 | 기본 config(order_count=10) | generate_dummy_data 후 orders.json read_all() | 반환 벡터 크기 == 10 | 정상 | PASS |
+| TC-DG-14 | 생성된 production 수가 config.production_count와 일치 | 기본 config(production_count=8) | generate_dummy_data 후 productions.json read_all() | 반환 벡터 크기 == 8 | 정상 | PASS |
+| TC-DG-15 | 모든 order 레코드에 approved_at, released_at 필드 존재 | 기본 config | generate_dummy_data 후 모든 orders 레코드 확인 | `contains("approved_at") == true`, `contains("released_at") == true` | 정상 | PASS |
+| TC-DG-16 | 모든 production 레코드에 production_start_at 필드 존재 | 기본 config | generate_dummy_data 후 모든 productions 레코드 확인 | `contains("production_start_at") == true` | 정상 | PASS |
+| TC-DG-17 | ordered_at이 YYYY-MM-DD HH:MM:SS 형식 | 기본 config | generate_dummy_data 후 productions.json 레코드 확인 | 모든 `ordered_at`이 `"YYYY-MM-DD HH:MM:SS"` 형식 (기존 HH:MM 형식 아님) | 정상 | PASS |
+| TC-DG-18 | 50건 order 생성 시 status 0~4 전체 출현 | order_count=50으로 generate_dummy_data 실행 | orders.json read_all() 후 status 집합 확인 | status 0·1·2·3·4가 모두 1회 이상 등장 | 경계 | PASS |
+| TC-DG-19 | RELEASED(4) 주문의 approved_at·released_at 모두 설정 확인 | order_count=50으로 generate_dummy_data 실행 | status==4 레코드 확인 | `approved_at.is_null() == false`, `released_at.is_null() == false` 로 RELEASED 열거형 값이 4임을 간접 검증 | 정상 | PASS |
+| TC-DG-20 | sample_count >= 1000 시 sample_id 형식 (n >= 1000 분기) | sample_count=1001로 generate_dummy_data 실행 | samples.json의 마지막 레코드 확인 | `sample_id == "S-1001"` (앞자리 0 없음) | 경계 | PASS |
+
+---
+
 ## 합계
 
 | 그룹 | TC 수 |
 |------|------|
 | TG-DS | 25 |
-| **합계** | **25** |
+| TG-DG | 20 |
+| **합계** | **45** |

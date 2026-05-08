@@ -16,6 +16,15 @@ namespace {
 
 namespace fs = std::filesystem;
 
+// Local enum for order status — matches DATA_SCHEMA.md values
+enum class OrderStatus : int {
+    Reserved  = 0,
+    Rejected  = 1,
+    Producing = 2,
+    Confirmed = 3,
+    RELEASED  = 4
+};
+
 const std::vector<std::string> kMaterials = {
     "실리콘", "산화막", "GaN", "SiC", "InP", "GaAs", "사파이어", "게르마늄"
 };
@@ -33,7 +42,8 @@ const std::vector<std::string> kCustomerNames = {
     "정태양", "강지원", "윤서연", "임도현", "오지현"
 };
 
-std::string format_epoch(int64_t epoch) {
+// Format epoch as "YYYY-MM-DD HH:MM:SS"
+std::string format_timestamp(int64_t epoch) {
     std::time_t t = static_cast<std::time_t>(epoch);
     std::tm tm{};
 #ifdef _WIN32
@@ -42,7 +52,7 @@ std::string format_epoch(int64_t epoch) {
     gmtime_r(&t, &tm);
 #endif
     std::ostringstream oss;
-    oss << std::put_time(&tm, "%H:%M");
+    oss << std::put_time(&tm, "%Y-%m-%d %H:%M:%S");
     return oss.str();
 }
 
@@ -83,7 +93,24 @@ struct OrderInfo {
     int64_t     order_quantity;
     double      yield_rate;
     double      avg_production_time;
+    OrderStatus order_status;
+    std::string approved_at;  // non-empty only when status requires it
 };
+
+// Add minutes (as double) to a "YYYY-MM-DD HH:MM:SS" timestamp string
+// Returns a new "YYYY-MM-DD HH:MM:SS" string
+std::string add_minutes_to_timestamp(const std::string& ts, double minutes) {
+    std::tm tm{};
+    std::istringstream ss(ts);
+    ss >> std::get_time(&tm, "%Y-%m-%d %H:%M:%S");
+#ifdef _WIN32
+    std::time_t t = _mkgmtime(&tm);
+#else
+    std::time_t t = timegm(&tm);
+#endif
+    t += static_cast<std::time_t>(std::round(minutes) * 60);
+    return format_timestamp(static_cast<int64_t>(t));
+}
 
 } // namespace
 
@@ -146,28 +173,53 @@ void generate_dummy_data(const GeneratorConfig& config) {
     std::uniform_int_distribution<int> qty_dist(10, 500);
     std::uniform_int_distribution<int> status_dist(0, 4);
     std::uniform_int_distribution<int> customer_pick(0, static_cast<int>(kCustomerNames.size()) - 1);
+    std::uniform_int_distribution<int> offset_dist(0, 180 * 24 * 3600);
 
     for (int i = 0; i < config.order_count; ++i) {
         const SampleInfo& s = samples[static_cast<size_t>(sample_pick(rng))];
         std::string onum = fmt_order_number(i + 1);
         int64_t qty = static_cast<int64_t>(qty_dist(rng));
+        OrderStatus status = static_cast<OrderStatus>(status_dist(rng));
+
+        // approved_at: null for Reserved(0) and Rejected(1); random timestamp for others
+        JsonValue approved_at_val = JsonValue(nullptr);
+        std::string approved_at_str;
+        if (status != OrderStatus::Reserved && status != OrderStatus::Rejected) {
+            int64_t approved_epoch = BASE_EPOCH + static_cast<int64_t>(offset_dist(rng));
+            approved_at_str = format_timestamp(approved_epoch);
+            approved_at_val = JsonValue(approved_at_str);
+        }
+
+        // released_at: random timestamp only for Released(4); null otherwise
+        JsonValue released_at_val = JsonValue(nullptr);
+        if (status == OrderStatus::RELEASED) {
+            int64_t released_epoch = BASE_EPOCH + static_cast<int64_t>(offset_dist(rng));
+            released_at_val = JsonValue(format_timestamp(released_epoch));
+        }
 
         JsonValue rec = JsonValue::object();
         rec["order_number"]   = JsonValue(onum);
         rec["sample_id"]      = JsonValue(s.sample_id);
         rec["customer_name"]  = JsonValue(kCustomerNames[static_cast<size_t>(customer_pick(rng))]);
         rec["order_quantity"] = JsonValue(qty);
-        rec["order_status"]   = JsonValue(static_cast<int64_t>(status_dist(rng)));
+        rec["order_status"]   = JsonValue(static_cast<int64_t>(status));
+        rec["approved_at"]    = approved_at_val;
+        rec["released_at"]    = released_at_val;
         order_store.create(rec);
 
-        orders.push_back({onum, s.sample_name, qty, s.yield_rate, s.avg_production_time});
+        orders.push_back({onum, s.sample_name, qty, s.yield_rate, s.avg_production_time,
+                          status, approved_at_str});
     }
 
     // ── Productions ──────────────────────────────────────────────────────────
     DataStore production_store((fs::path(config.output_dir) / "productions.json").string());
 
     std::uniform_int_distribution<int> order_pick(0, static_cast<int>(orders.size()) - 1);
-    std::uniform_int_distribution<int> offset_dist(0, 180 * 24 * 3600);
+
+    // Track the end time of the last production in the queue for enqueue logic
+    // production_start_at of first: approved_at of its order
+    // production_start_at of subsequent: previous start_at + estimated_completion
+    std::string prev_end_ts;  // empty means queue is empty
 
     for (int i = 0; i < config.production_count; ++i) {
         const OrderInfo& o = orders[static_cast<size_t>(order_pick(rng))];
@@ -183,19 +235,38 @@ void generate_dummy_data(const GeneratorConfig& config) {
             );
         }
 
-        int64_t ordered_epoch = BASE_EPOCH + offset_dist(rng);
+        int64_t ordered_epoch = BASE_EPOCH + static_cast<int64_t>(offset_dist(rng));
 
         // estimated_completion = actual_production * avg_production_time (총 생산 소요 시간, HH:MM)
         double total_minutes = static_cast<double>(actual_production) * o.avg_production_time;
 
+        // production_start_at: enqueue rule
+        // - queue empty (prev_end_ts empty) → use order's approved_at
+        //   if approved_at is also empty (Reserved/Rejected), fall back to ordered_at
+        // - queue non-empty → use prev_end_ts
+        std::string production_start_at;
+        if (prev_end_ts.empty()) {
+            if (!o.approved_at.empty()) {
+                production_start_at = o.approved_at;
+            } else {
+                production_start_at = format_timestamp(ordered_epoch);
+            }
+        } else {
+            production_start_at = prev_end_ts;
+        }
+
+        // Update prev_end_ts: production_start_at + estimated_completion (in minutes)
+        prev_end_ts = add_minutes_to_timestamp(production_start_at, total_minutes);
+
         JsonValue rec = JsonValue::object();
-        rec["order_number"]         = JsonValue(o.order_number);
-        rec["sample_name"]          = JsonValue(o.sample_name);
-        rec["order_quantity"]       = JsonValue(o.order_quantity);
-        rec["shortage"]             = JsonValue(shortage);
-        rec["actual_production"]    = JsonValue(actual_production);
-        rec["ordered_at"]           = JsonValue(format_epoch(ordered_epoch));
-        rec["estimated_completion"] = JsonValue(format_duration_hhmm(total_minutes));
+        rec["order_number"]          = JsonValue(o.order_number);
+        rec["sample_name"]           = JsonValue(o.sample_name);
+        rec["order_quantity"]        = JsonValue(o.order_quantity);
+        rec["shortage"]              = JsonValue(shortage);
+        rec["actual_production"]     = JsonValue(actual_production);
+        rec["ordered_at"]            = JsonValue(format_timestamp(ordered_epoch));
+        rec["estimated_completion"]  = JsonValue(format_duration_hhmm(total_minutes));
+        rec["production_start_at"]   = JsonValue(production_start_at);
         production_store.create(rec);
     }
 }
