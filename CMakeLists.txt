@@ -10,6 +10,7 @@ if(ENABLE_TESTS)
     add_compile_options("-fprofile-instr-generate" "-fcoverage-mapping")
     add_link_options("-fprofile-instr-generate")
     add_subdirectory(lib/googletest-main)
+    add_subdirectory(tests)
 endif()
 
 set(JSON_BUILD_TESTS OFF CACHE BOOL "" FORCE)
